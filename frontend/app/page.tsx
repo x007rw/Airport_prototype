@@ -5,7 +5,7 @@ import axios from "axios";
 import {
   Plane, Terminal, Play, Power, Activity,
   Video, FileText, Monitor, CheckCircle, AlertTriangle,
-  Send, User, Bot, Loader2, Rocket
+  Send, User, Bot, Loader2, Rocket, History, HardDrive
 } from "lucide-react";
 import clsx from "clsx";
 
@@ -16,6 +16,20 @@ type Message = {
   text: string;
 };
 
+type Flight = {
+  flight_id: string;
+  start_time: string;
+  end_time?: string;
+  status: string;
+  mission: string;
+};
+
+type LogEntry = {
+  timestamp: string;
+  type: string;
+  details: string;
+};
+
 export default function Home() {
   const [messages, setMessages] = useState<Message[]>([
     { role: "attendant", text: "機長、おはようございます。本日のミッションプラン作成をサポートいたします。どのような任務を実行しますか？" }
@@ -23,18 +37,34 @@ export default function Home() {
   const [input, setInput] = useState("");
   const [logs, setLogs] = useState<string>("");
   const [status, setStatus] = useState<"running" | "idle">("idle");
-  const [activeTab, setActiveTab] = useState<"live" | "plan" | "videos">("live");
+  const [activeTab, setActiveTab] = useState<"live" | "plan" | "recorder">("live");
   const [isPlanning, setIsPlanning] = useState(false);
+
+  // Recorder State
+  const [flights, setFlights] = useState<Flight[]>([]);
+  const [selectedFlightId, setSelectedFlightId] = useState<string | null>(null);
+  const [flightLogs, setFlightLogs] = useState<LogEntry[]>([]);
 
   const logEndRef = useRef<HTMLDivElement>(null);
   const chatEndRef = useRef<HTMLDivElement>(null);
 
   // Polling Status & Logs
   useEffect(() => {
+    let lastStatus = "idle";
     const interval = setInterval(async () => {
       try {
         const statusRes = await axios.get(`${API_URL}/status`);
-        setStatus(statusRes.data.status);
+        const currentStatus = statusRes.data.status;
+        setStatus(currentStatus);
+
+        // If mission just finished, load flight history automatically
+        if (lastStatus === "running" && currentStatus === "idle") {
+          fetchFlights();
+          setMessages(prev => [...prev, { role: "attendant", text: "ミッション完了。Flight Recorderにブラックボックスデータを転送しました。右画面で確認できます。" }]);
+          setActiveTab("recorder");
+        }
+        lastStatus = currentStatus;
+
         const logsRes = await axios.get(`${API_URL}/logs`);
         setLogs(logsRes.data.logs);
       } catch (e) {
@@ -43,6 +73,36 @@ export default function Home() {
     }, 2000);
     return () => clearInterval(interval);
   }, []);
+
+  useEffect(() => {
+    if (activeTab === "recorder") {
+      fetchFlights();
+    }
+  }, [activeTab]);
+
+  useEffect(() => {
+    if (selectedFlightId) {
+      fetchFlightDetails(selectedFlightId);
+    }
+  }, [selectedFlightId]);
+
+  const fetchFlights = async () => {
+    try {
+      const res = await axios.get(`${API_URL}/flights`);
+      setFlights(res.data.flights);
+      // Auto-select most recent if none selected
+      if (!selectedFlightId && res.data.flights.length > 0) {
+        setSelectedFlightId(res.data.flights[0].flight_id);
+      }
+    } catch (e) { console.error(e); }
+  };
+
+  const fetchFlightDetails = async (id: string) => {
+    try {
+      const res = await axios.get(`${API_URL}/flights/${id}`);
+      setFlightLogs(res.data.logs);
+    } catch (e) { console.error(e); }
+  };
 
   useEffect(() => {
     logEndRef.current?.scrollIntoView({ behavior: "smooth" });
@@ -74,6 +134,7 @@ export default function Home() {
       // For prototype, we default to the integration demo
       await axios.post(`${API_URL}/run`, { mode: "weather_demo" });
       setMessages([...messages, { role: "attendant", text: "ミッションを開始します。フルスロットルで加速中。システムをモニタリングしています..." }]);
+      setActiveTab("live"); // Switch to live view
     } catch (e: any) {
       alert("Take-off aborted: " + (e.response?.data?.detail || e.message));
     }
@@ -164,7 +225,7 @@ export default function Home() {
           {[
             { id: "live", label: "Live Viewport", icon: Monitor },
             { id: "plan", label: "Mission Plan", icon: FileText },
-            { id: "videos", label: "Flight Recorder", icon: Video },
+            { id: "recorder", label: "Flight Recorder", icon: HardDrive },
           ].map((tab) => (
             <button
               key={tab.id}
@@ -204,7 +265,8 @@ export default function Home() {
                   SYSTEM_TELEMETRY.LOG
                 </div>
                 <div className="flex-grow overflow-y-auto space-y-1 text-sky-400/80 custom-scrollbar">
-                  {logs || "> Systems check complete. Awaiting Take-off instructions..."}
+                  {/* Reverse logs for display? No, keep it flowing */}
+                  <pre className="whitespace-pre-wrap font-mono">{logs || "> Systems check complete. Awaiting Take-off instructions..."}</pre>
                   <div ref={logEndRef} />
                 </div>
               </div>
@@ -232,9 +294,41 @@ export default function Home() {
             </div>
           )}
 
-          {activeTab === "videos" && (
-            <div className="flex-grow flex items-center justify-center text-gray-600 font-orbitron italic">
-              <Video className="w-8 h-8 mr-4 opacity-20" /> Flight Recorder access restricted during active missions
+          {activeTab === "recorder" && (
+            <div className="flex-grow flex gap-4 h-full overflow-hidden">
+              {/* List of Flights */}
+              <div className="w-1/3 bg-gray-950 border border-gray-900 rounded-2xl overflow-y-auto p-2">
+                {flights.length === 0 && <div className="text-center text-gray-600 text-xs p-4">No Data Recorded</div>}
+                {flights.map(f => (
+                  <button
+                    key={f.flight_id}
+                    onClick={() => setSelectedFlightId(f.flight_id)}
+                    className={clsx(
+                      "w-full text-left p-3 mb-2 rounded-lg text-xs font-mono transition-colors",
+                      selectedFlightId === f.flight_id ? "bg-sky-500/20 text-sky-400 border border-sky-500/30" : "hover:bg-gray-900 text-gray-500"
+                    )}
+                  >
+                    <div className="font-bold">{f.flight_id}</div>
+                    <div className="opacity-60">{f.status}</div>
+                  </button>
+                ))}
+              </div>
+
+              {/* Flight Data Detail */}
+              <div className="w-2/3 bg-black border border-gray-900 rounded-2xl p-4 overflow-hidden flex flex-col">
+                <div className="flex items-center gap-2 text-sky-500 mb-4 font-orbitron border-b border-gray-900 pb-2">
+                  <History className="w-4 h-4" /> BLACK BOX DATA
+                </div>
+                <div className="flex-grow overflow-y-auto space-y-2 custom-scrollbar">
+                  {flightLogs.length === 0 && <div className="text-gray-700 text-xs">No logs found for this flight.</div>}
+                  {flightLogs.map((log, i) => (
+                    <div key={i} className="text-[10px] font-mono border-l-2 border-gray-800 pl-2 py-1">
+                      <div className="text-xs text-gray-500 mb-0.5">{log.timestamp.split("T")[1].split(".")[0]} <span className={clsx("font-bold", log.type === "ERROR" ? "text-red-500" : "text-sky-600")}>[{log.type}]</span></div>
+                      <div className="text-gray-300 whitespace-pre-wrap">{log.details}</div>
+                    </div>
+                  ))}
+                </div>
+              </div>
             </div>
           )}
         </div>

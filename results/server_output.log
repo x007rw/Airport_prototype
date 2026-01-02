@@ -1,0 +1,41 @@
+INFO:     Started server process [67139]
+INFO:     Waiting for application startup.
+INFO:     Application startup complete.
+INFO:     Uvicorn running on http://0.0.0.0:8000 (Press CTRL+C to quit)
+INFO:     127.0.0.1:54352 - "GET /api/status HTTP/1.1" 200 OK
+INFO:     127.0.0.1:51450 - "POST /api/run HTTP/1.1" 200 OK
+INFO:     127.0.0.1:51462 - "GET /api/status HTTP/1.1" 200 OK
+INFO:     127.0.0.1:36656 - "GET /api/status HTTP/1.1" 200 OK
+INFO:     127.0.0.1:36646 - "GET /api/logs HTTP/1.1" 200 OK
+INFO:     127.0.0.1:36658 - "GET /api/logs HTTP/1.1" 200 OK
+INFO:     127.0.0.1:36674 - "GET /api/status HTTP/1.1" 200 OK
+INFO:     127.0.0.1:36678 - "GET /api/logs HTTP/1.1" 200 OK
+INFO:     127.0.0.1:36682 - "GET /api/status HTTP/1.1" 200 OK
+INFO:     127.0.0.1:36694 - "GET /api/logs HTTP/1.1" 200 OK
+INFO:     127.0.0.1:36706 - "GET /api/status HTTP/1.1" 200 OK
+INFO:     127.0.0.1:39338 - "GET /api/logs HTTP/1.1" 200 OK
+INFO:     127.0.0.1:39352 - "GET /api/status HTTP/1.1" 200 OK
+INFO:     127.0.0.1:39362 - "GET /api/logs HTTP/1.1" 200 OK
+INFO:     127.0.0.1:39370 - "GET /api/status HTTP/1.1" 200 OK
+INFO:     127.0.0.1:39382 - "GET /api/logs HTTP/1.1" 200 OK
+INFO:     127.0.0.1:39392 - "GET /api/status HTTP/1.1" 200 OK
+INFO:     127.0.0.1:39398 - "GET /api/logs HTTP/1.1" 200 OK
+INFO:     127.0.0.1:39402 - "GET /api/status HTTP/1.1" 200 OK
+INFO:     127.0.0.1:39408 - "GET /api/logs HTTP/1.1" 200 OK
+INFO:     127.0.0.1:39416 - "GET /api/status HTTP/1.1" 200 OK
+INFO:     127.0.0.1:38772 - "GET /api/logs HTTP/1.1" 200 OK
+INFO:     127.0.0.1:38780 - "GET /api/status HTTP/1.1" 200 OK
+INFO:     127.0.0.1:38796 - "GET /api/logs HTTP/1.1" 200 OK
+INFO:     127.0.0.1:38802 - "GET /api/videos HTTP/1.1" 200 OK
+INFO:     127.0.0.1:38808 - "GET /api/status HTTP/1.1" 200 OK
+INFO:     127.0.0.1:38816 - "GET /api/logs HTTP/1.1" 200 OK
+INFO:     127.0.0.1:38818 - "GET /api/status HTTP/1.1" 200 OK
+INFO:     127.0.0.1:38826 - "GET /api/videos/8f1da348c0e229f8f4226f7fedffb44d.webm HTTP/1.1" 206 Partial Content
+INFO:     127.0.0.1:38840 - "GET /api/logs HTTP/1.1" 200 OK
+INFO:     127.0.0.1:38854 - "GET /api/status HTTP/1.1" 200 OK
+INFO:     127.0.0.1:38868 - "GET /api/videos/97978eded221ce95ec131e7747377005.webm HTTP/1.1" 206 Partial Content
+INFO:     127.0.0.1:38876 - "GET /api/logs HTTP/1.1" 200 OK
+INFO:     127.0.0.1:38884 - "GET /api/status HTTP/1.1" 200 OK
+INFO:     127.0.0.1:56670 - "GET /api/logs HTTP/1.1" 200 OK
+INFO:     127.0.0.1:56674 - "GET /api/status HTTP/1.1" 200 OK
+INFO:     127.0.0.1:56690 - "GET /api/logs HTTP/1.1" 200 OK

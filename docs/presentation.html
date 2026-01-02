@@ -1,0 +1,783 @@
+<!DOCTYPE html>
+<html lang="ja">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Project Airport</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link
+        href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;600&family=Orbitron:wght@500;700;900&display=swap"
+        rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
+    <style>
+        * {
+            box-sizing: border-box;
+            -webkit-tap-highlight-color: transparent;
+            -webkit-user-select: none;
+            -moz-user-select: none;
+            -ms-user-select: none;
+            user-select: none;
+            outline: none;
+        }
+
+        *::selection {
+            background-color: transparent;
+            color: inherit;
+        }
+
+        body {
+            background-color: #111;
+            display: grid;
+            gap: 20px;
+            grid-template-columns: 1fr;
+            margin: 0;
+            min-height: 100vh;
+            padding: 20px 0;
+            place-items: center;
+            font-family: 'Inter', sans-serif;
+        }
+
+        .slide-container {
+            background-color: #000000;
+            border: 1px solid #333;
+            border-radius: 0;
+            box-shadow: 0 0 40px rgba(0, 0, 0, 1);
+            display: grid;
+            grid-template-rows: 100px 1fr;
+            align-items: start;
+            height: 720px;
+            overflow: hidden;
+            padding: 60px;
+            position: relative;
+            width: 1280px;
+            color: #ffffff;
+        }
+
+        .slide-container.splash {
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            text-align: center;
+        }
+
+        .slide-container>* {
+            position: relative;
+            z-index: 2;
+        }
+
+        .slide-container h1,
+        .slide-container h2,
+        .slide-container h3,
+        .slide-container th {
+            font-family: 'Orbitron', sans-serif;
+            text-transform: uppercase;
+            letter-spacing: 3px;
+            color: #fff;
+            margin: 0;
+        }
+
+        .slide-container h1 {
+            font-size: 90px;
+            font-weight: 900;
+            color: #fff;
+            text-shadow: 0 0 30px rgba(255, 255, 255, 0.2);
+            margin: 0;
+        }
+
+        .slide-container .slide-title {
+            font-size: 48px;
+            font-weight: 700;
+            margin-bottom: 50px;
+            color: #fff;
+            border-left: 4px solid #38bdf8;
+            padding-left: 24px;
+            width: 100%;
+            text-align: left;
+            text-shadow: 0 0 10px rgba(56, 189, 248, 0.3);
+        }
+
+        .slide-container p,
+        .slide-container li,
+        .slide-container td {
+            font-family: 'Inter', sans-serif;
+            color: #e0e0e0;
+            font-size: 18px;
+            line-height: 1.8;
+            font-weight: 300;
+        }
+
+        .slide-container .subtitle {
+            font-family: 'Inter', sans-serif;
+            font-size: 24px;
+            color: #ccc;
+            margin-top: 20px;
+            font-weight: 300;
+            letter-spacing: 2px;
+        }
+
+        .content-area {
+            display: flex;
+            flex-direction: column;
+            flex-grow: 1;
+            justify-content: center;
+            width: 100%;
+        }
+
+        .two-column {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 80px;
+            width: 100%;
+            align-items: center;
+            height: 100%;
+        }
+
+        .two-column.tiled {
+            align-items: stretch;
+        }
+
+        .tiled-content {
+            display: flex;
+            gap: 30px;
+            width: 100%;
+            justify-content: center;
+            align-items: stretch;
+        }
+
+        .tile {
+            background: #050505;
+            border: 1px solid #333;
+            border-radius: 0px;
+            padding: 30px;
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            align-items: flex-start;
+            text-align: left;
+            transition: all 0.3s ease;
+        }
+
+        .tile h3 {
+            font-size: 18px;
+            color: #fff;
+            margin-bottom: 15px;
+            margin-top: 15px;
+            letter-spacing: 1px;
+            border-bottom: 1px solid #333;
+            padding-bottom: 10px;
+            width: 100%;
+        }
+
+        .tile .icon {
+            font-size: 28px;
+            color: #38bdf8;
+            background: transparent;
+            width: auto;
+            height: auto;
+            display: inline-block;
+            border-radius: 0;
+            box-shadow: none;
+            margin-bottom: 10px;
+        }
+
+        .table-layout table {
+            width: 100%;
+            border-collapse: collapse;
+            background: transparent;
+            border: 1px solid #333;
+        }
+
+        .table-layout th {
+            background: #111;
+            color: #fff;
+            padding: 24px;
+            text-align: left;
+            font-size: 18px;
+            border-bottom: 1px solid #38bdf8;
+            font-weight: 700;
+        }
+
+        .table-layout td {
+            padding: 24px;
+            border-bottom: 1px solid #222;
+            color: #ddd;
+        }
+
+        .table-layout tr:last-child td {
+            border-bottom: none;
+        }
+
+        .timeline-layout {
+            position: relative;
+            display: flex;
+            justify-content: space-between;
+            width: 100%;
+            margin-top: 80px;
+        }
+
+        .timeline-line {
+            position: absolute;
+            top: 20px;
+            left: 0;
+            width: 100%;
+            height: 1px;
+            background: #333;
+            z-index: 0;
+        }
+
+        .timeline-item {
+            position: relative;
+            z-index: 1;
+            width: 45%;
+            text-align: center;
+        }
+
+        .timeline-dot {
+            width: 40px;
+            height: 40px;
+            background: #000;
+            border: 2px solid #38bdf8;
+            border-radius: 50%;
+            margin: 0 auto 30px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: #38bdf8;
+            box-shadow: 0 0 15px rgba(56, 189, 248, 0.4);
+        }
+
+        .styled-bullets ul {
+            list-style: none;
+            padding: 0;
+        }
+
+        .styled-bullets li {
+            margin-bottom: 30px;
+            padding-left: 40px;
+            position: relative;
+            font-size: 22px;
+            color: #fff;
+        }
+
+        .styled-bullets li::before {
+            content: '\f054';
+            font-family: 'Font Awesome 6 Free';
+            font-weight: 900;
+            position: absolute;
+            left: 0;
+            color: #38bdf8;
+            font-size: 16px;
+            top: 6px;
+        }
+
+        .slide-wrapper {
+            width: 100%;
+            max-width: 1280px;
+            aspect-ratio: 16 / 9;
+            position: relative;
+            overflow: visible;
+        }
+
+        .slide-wrapper .slide-container {
+            position: absolute;
+            top: 0;
+            left: 0;
+            margin: 0;
+            transform-origin: top left;
+            width: 1280px;
+            height: 720px;
+        }
+
+        @media (max-width: 768px) {
+            body {
+                padding: 10px;
+                gap: 15px;
+            }
+        }
+    </style>
+</head>
+
+<body>
+
+    <div class="slide-container splash" id="slide1">
+        <div>
+            <h1>Airport</h1>
+            <p class="subtitle" style="color: #fff; font-weight: 600; letter-spacing: 4px;">「思考」を解き放て</p>
+            <p class="subtitle" style="color: #888;">次世代型AIエージェント・プラットフォーム</p>
+        </div>
+    </div>
+
+    <div class="slide-container" id="slide2">
+        <h2 class="slide-title">AIエージェントとは？</h2>
+        <div class="content-area">
+            <p style="margin-bottom: 40px; font-size: 20px; color: #aaa;">「会話」を目的とするのではなく、自律的に「タスクの完遂」を目的とする実行体。</p>
+            <div class="tiled-content">
+                <div class="tile">
+                    <div class="icon"><i class="fa-solid fa-robot"></i></div>
+                    <h3>自律性
+                        <br>Autonomy
+                    </h3>
+                    <p>ゴールから逆算し、自らタスクを分解・優先順位付けする。</p>
+                </div>
+                <div class="tile">
+                    <div class="icon"><i class="fa-solid fa-hand-pointer"></i></div>
+                    <h3>介入性
+                        <br>Intervention
+                    </h3>
+                    <p>ブラウザ、API、OSなど、デジタル空間の壁を越えて直接的に干渉・操作する。</p>
+                </div>
+                <div class="tile">
+                    <div class="icon"><i class="fa-solid fa-arrows-rotate"></i></div>
+                    <h3>継続性
+                        <br>Iteration
+                    </h3>
+                    <p>実行結果を観測し、目標達成まで「計画・実行・評価」を繰り返す。</p>
+                </div>
+                <div class="tile">
+                    <div class="icon"><i class="fa-solid fa-dna"></i></div>
+                    <h3>再帰性
+                        <br>Recursiveness
+                    </h3>
+                    <p>自身の行動と結果を「経験」として蓄積し、次なる判断の精度を自己進化させる。</p>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="slide-container" id="slide3">
+        <h2 class="slide-title">Airportとは？</h2>
+        <div class="content-area">
+            <h3 style="font-size: 36px; color: #fff; margin-bottom: 40px; text-align: center;">「完遂」に特化した知能の集積地
+            </h3>
+            <div class="tiled-content">
+                <div class="tile">
+                    <div class="icon"><i class="fa-solid fa-triangle-exclamation"></i></div>
+                    <h3>既存の課題</h3>
+                    <p>従来の「チャット型AI」は文字通り言葉のやり取りに留まり、人間が常にハンドルを握り続ける必要がありました。</p>
+                </div>
+                <div class="tile">
+                    <div class="icon"><i class="fa-solid fa-lightbulb"></i></div>
+                    <h3>Airportの解答</h3>
+                    <p>Airportでは、ユーザーは「目的地」を示すだけ。離陸から着陸までの最適な「飛行計画」はシステムが自律的に生成します。</p>
+                </div>
+                <div class="tile">
+                    <div class="icon"><i class="fa-solid fa-user-astronaut"></i></div>
+                    <h3>実行</h3>
+                    <p>独自のAIエージェント「Captain」が、用意された実行環境の中で実際に手を動かし、トラブルを自力で乗り越えながらゴールへ到達します。</p>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="slide-container" id="slide4">
+        <h2 class="slide-title">Airportのこだわり</h2>
+        <div class="content-area">
+            <div class="tiled-content">
+                <div class="tile">
+                    <div class="icon"><i class="fa-solid fa-flag-checkered"></i></div>
+                    <h3>完遂への執着</h3>
+                    <p>「できた」がすべて。エラーや中断で立ち止まることなく、目標達成という目的地に到達するまで、Captainは操縦桿を離しません。</p>
+                </div>
+                <div class="tile">
+                    <div class="icon"><i class="fa-solid fa-box-open"></i></div>
+                    <h3>手段を問わない</h3>
+                    <p>既存ツールの枠に縛られません。ミッションに応じて必要なAPI、外部ツール、あらゆるリソースを自律的に判断し、その場で調達・実行します。</p>
+                </div>
+                <div class="tile">
+                    <div class="icon"><i class="fa-solid fa-desktop"></i></div>
+                    <h3>全知全能</h3>
+                    <p>ブラウザという「檻」を越えます。OS・GUI・ファイル操作すべてにアクセスし、人間がデスクで行うあらゆる作業を高精度に代行します。</p>
+                </div>
+                <div class="tile">
+                    <div class="icon"><i class="fa-solid fa-shield-halved"></i></div>
+                    <h3>ガバナンス</h3>
+                    <p>強大な権限には、最強の規律を。すべての行動は安全に隔離され、厳格なガバナンスのもとで行動ログが完全に透明化されます。</p>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="slide-container" id="slide5">
+        <h2 class="slide-title">従来型 vs Airport</h2>
+        <div class="content-area">
+            <div class="table-layout">
+                <table>
+                    <thead>
+                        <tr>
+                            <th style="width: 20%">項目</th>
+                            <th style="width: 40%; color: #888;">従来のエージェント</th>
+                            <th style="width: 40%; color: #38bdf8;">Airport</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <tr>
+                            <td><strong>航続力</strong></td>
+                            <td>短期タスク向け。思考が逸れたり、途中で迷子になり停止する。</td>
+                            <td><strong>長時間のフライトを完遂。</strong><br><small
+                                    style="color: #888;">自己修復を繰り返し、ゴールまで飛び続ける。</small></td>
+                        </tr>
+                        <tr>
+                            <td><strong>実行環境</strong></td>
+                            <td>ブラウザや特定アプリの「点」。外部ツールとの連携が困難。</td>
+                            <td><strong>あらゆるOS・アプリ・APIを横断。</strong><br><small
+                                    style="color: #888;">Captainが環境を自在に切り替えて任務を遂行。</small></td>
+                        </tr>
+                        <tr>
+                            <td><strong>ログ管理</strong></td>
+                            <td>記録が残らない「ブラックボックス」。失敗の再現も困難。</td>
+                            <td><strong>飛行記録(Black Box)を完全保持。</strong><br><small
+                                    style="color: #888;">全思考・操作ログを蓄積し、次回の精度を向上。</small></td>
+                        </tr>
+                        <tr>
+                            <td><strong>具体例</strong></td>
+                            <td>エラーが出たら「どうしますか？」と人間に操縦桿を戻してくる。</td>
+                            <td>目的地を伝えるだけ。Captainが離陸から着陸までを<strong>「任せきり」</strong>にする。</td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+
+    <div class="slide-container" id="slide6">
+        <h2 class="slide-title">Airportの構成要素</h2>
+        <div class="content-area">
+            <h3 style="font-size: 32px; color: #fff; margin-bottom: 40px; text-align: center;">「完遂」を支える3つの主役</h3>
+            <div class="tiled-content">
+                <div class="tile">
+                    <div class="icon"><i class="fa-solid fa-user-tie"></i></div>
+                    <h3>Attendant</h3>
+                    <p style="font-size: 15px;">ユーザーとのインターフェース。曖昧な指示を「飛行計画」へ翻訳する案内係。</p>
+                </div>
+                <div class="tile">
+                    <div class="icon"><i class="fa-solid fa-plane"></i></div>
+                    <h3>Captain</h3>
+                    <p style="font-size: 15px;">実務の実行体。PC・OSを自在に操縦し、自ら考えて完遂まで任務を遂行する機長。</p>
+                </div>
+                <div class="tile">
+                    <div class="icon"><i class="fa-solid fa-tower-broadcast"></i></div>
+                    <h3>ATC</h3>
+                    <p style="font-size: 15px;">システムのバックエンド。リソース管理・セキュリティ・監査を司る管制システム。</p>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="slide-container" id="slide7">
+        <h2 class="slide-title">Attendant: インターフェース</h2>
+        <div class="content-area">
+            <div class="two-column">
+                <div>
+                    <h3 style="font-size: 28px; color: #38bdf8; border: none;">ユーザーの想いを<br>「飛行計画」へ</h3>
+                    <p style="font-size: 18px; margin-top: 20px;">
+                        Attendantは、ユーザーとシステムの橋渡しを担うコンシェルジュです。ただのチャットではなく、実務に必要な条件を整理する役割を果たします。</p>
+                </div>
+                <div class="tile">
+                    <ul class="styled-bullets" style="margin: 0; padding: 0;">
+                        <li style="font-size: 18px; margin-bottom: 15px;">
+                            <strong>目標の構造化</strong><br><small>「いい感じにして」をCaptainが理解できる具体的なステップへ変換。</small>
+                        </li>
+                        <li style="font-size: 18px; margin-bottom: 15px;">
+                            <strong>リソースヒアリング</strong><br><small>必要なAPIキーや参照データの場所など、実行前に不足を解消。</small>
+                        </li>
+                        <li style="font-size: 18px;">
+                            <strong>アテンド報告</strong><br><small>Captainの複雑な技術的行動を、人間に分かりやすい言葉で翻訳し報告。</small>
+                        </li>
+                    </ul>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="slide-container" id="slide8">
+        <h2 class="slide-title">Captain: 推論エンジン</h2>
+        <div class="content-area">
+            <div class="two-column">
+                <div class="tile">
+                    <ul class="styled-bullets" style="margin: 0; padding: 0;">
+                        <li style="font-size: 18px; margin-bottom: 15px;">
+                            <strong>ノーリミットな道具操作</strong><br><small>ブラウザだけでなく、ターミナル、Excel、IDE、独自アプリなどGUIすべてを操作。</small>
+                        </li>
+                        <li style="font-size: 18px; margin-bottom: 15px;">
+                            <strong>自律的な意思決定</strong><br><small>一歩進むたびに「現状を観測」し、次の一手を自ら判断。指示待ちはありません。</small>
+                        </li>
+                        <li style="font-size: 18px;">
+                            <strong>自己解決と修復</strong><br><small>エラーは「終わり」ではなく「挑戦」。解決策をリサーチし、自力で航路を修正。</small>
+                        </li>
+                    </ul>
+                </div>
+                <div>
+                    <h3 style="font-size: 28px; color: #38bdf8; border: none;">「やり方」を知っている<br>プロフェッショナル</h3>
+                    <p style="font-size: 18px; margin-top: 20px;">
+                        Captainは、実務の「プロの知能」です。Hangarという機体に乗り込み、目的地の旗を立てるまで操縦桿を離しません。</p>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="slide-container" id="slide9">
+        <h2 class="slide-title">ATC: オーケストレーター</h2>
+        <div class="content-area">
+            <div class="two-column">
+                <div>
+                    <h3 style="font-size: 28px; color: #38bdf8; border: none;">安全で確実な<br>安定運用の要</h3>
+                    <p style="font-size: 18px; margin-top: 20px;">
+                        ATCは舞台裏のオーケストレーターです。Captainが自由に、かつ暴走せず動けるための最強のインフラを提供します。</p>
+                </div>
+                <div class="tile">
+                    <ul class="styled-bullets" style="margin: 0; padding: 0;">
+                        <li style="font-size: 18px; margin-bottom: 15px;">
+                            <strong>フライト・スケジューリング</strong><br><small>複数エージェントの並列稼働を管理し、リソース競合を防ぐ。</small>
+                        </li>
+                        <li style="font-size: 18px; margin-bottom: 15px;"><strong>燃料管理
+                                (Fuel)</strong><br><small>APIコスト・演算リソースをリアルタイム監視。予算超過を物理的に阻止。</small></li>
+                        <li style="font-size: 18px;">
+                            <strong>全自動ブラックボックス</strong><br><small>全思考・操作行程を記録。セキュリティ監査と再帰的学習のためのデータを保持。</small>
+                        </li>
+                    </ul>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="slide-container" id="slide10">
+        <h2 class="slide-title">Fleet & Hangar: 実行環境</h2>
+        <div class="content-area">
+            <p style="margin-bottom: 30px; font-size: 20px; color: #aaa;">デジタル作業のすべてをカバーする、無限のスケーラビリティ。</p>
+            <div class="tiled-content">
+                <div class="tile">
+                    <div class="icon"><i class="fa-brands fa-docker"></i></div>
+                    <h3>Docker Hangar</h3>
+                    <p style="font-size: 15px;"><strong>【完全隔離】</strong>
+                        使い捨ての隔離環境でタスクを実行。顧客のメインシステムを一切汚さず、常にクリーンかつセキュアな状態で「リスクゼロ」の運用を実現します。</p>
+                </div>
+                <div class="tile">
+                    <div class="icon"><i class="fa-solid fa-microchip"></i></div>
+                    <h3>Native Orchestration</h3>
+                    <p style="font-size: 15px;"><strong>【全OS制覇】</strong>
+                        独自のドライバーで、ブラウザを超えたOS・GUI・ファイル操作すべてを掌握。あらゆる既存ソフトウェアをAIが操作可能な「資産」に変えます。</p>
+                </div>
+                <div class="tile">
+                    <div class="icon"><i class="fa-solid fa-cloud"></i></div>
+                    <h3>Cloud Fleet</h3>
+                    <p style="font-size: 15px;"><strong>【無限の並列】</strong>
+                        クラウド上で複数のCaptainを即座に同時展開。人間の労働力では不可能な「大量・高速」な処理を、圧倒的なスケールで提供します。</p>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="slide-container" id="slide11">
+        <h2 class="slide-title">Radar: 理論上最強の観測眼</h2>
+        <div class="content-area">
+            <h3 style="color: #fff; margin-bottom: 40px; text-align: center; font-size: 28px;">「画面」を支配し、あらゆる知能とシステムを統合する
+            </h3>
+            <div class="tiled-content">
+                <div class="tile">
+                    <div class="icon"><i class="fa-solid fa-microchip"></i></div>
+                    <h3>万能の互換性</h3>
+                    <p style="font-size: 15px;">
+                        APIは不要。レガシーシステムから**他社の専門AI**まで、画面に映るすべてを観測・操作。競合すらもAirportの「部品」として従わせる最強のハブ機能です。</p>
+                </div>
+                <div class="tile">
+                    <div class="icon"><i class="fa-solid fa-eye"></i></div>
+                    <h3>リアルタイム追跡</h3>
+                    <p style="font-size: 15px;">画面の微細な変化を1秒間に数回キャプチャし、状況を文字通り「目視」で把握。予期せぬエラーや動的な変化にも、人間以上の反応速度で対応します。
+                    </p>
+                </div>
+                <div class="tile">
+                    <div class="icon"><i class="fa-solid fa-mask"></i></div>
+                    <h3>視覚的プライバシー</h3>
+                    <p style="font-size: 15px;">最強の眼には最強のモラルを。機密情報をローカルで即座に検知。外部送信前に自動で黒塗り（マスク）し、視覚経由の漏洩を物理的に遮断します。</p>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="slide-container" id="slide12">
+        <h2 class="slide-title">Black Box: 透明性</h2>
+        <div class="content-area">
+            <h3 style="color: #fff; margin-bottom: 40px; font-weight: 300; text-align: center; font-size: 28px;">
+                「何が起きたか」を100%可視化する</h3>
+            <div class="tiled-content">
+                <div class="tile">
+                    <div class="icon"><i class="fa-solid fa-brain"></i></div>
+                    <h3>思考の可視化</h3>
+                    <p style="font-size: 15px;">Captainの内部思考プロセス(Chain of
+                        Thought)をすべて記録。なぜその行動を選択したのか、ブラックボックスを排除し、人間の監査を可能にします。</p>
+                </div>
+                <div class="tile">
+                    <div class="icon"><i class="fa-solid fa-list-check"></i></div>
+                    <h3>行動の証跡</h3>
+                    <p style="font-size: 15px;">実行された全コマンド、クリック、入力内容をタイムスタンプと共に保存。誰が・いつ・何をしたかという法的な証拠性を担保します。</p>
+                </div>
+                <div class="tile">
+                    <div class="icon"><i class="fa-solid fa-camera"></i></div>
+                    <h3>視覚的証拠</h3>
+                    <p style="font-size: 15px;">Radarが捉えた画面のスクリーンショットを定期的に保存。AIがどのような「世界」を見て判断したのかを、後から人間が視認できます。</p>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="slide-container" id="slide13">
+        <h2 class="slide-title">QRH: 再帰的学習</h2>
+        <div class="content-area">
+            <h3 style="color: #fff; margin-bottom: 40px; font-weight: 300; text-align: center; font-size: 28px;">
+                成功体験を「組織の知能」として定着させる</h3>
+            <div class="tiled-content">
+                <div class="tile">
+                    <div class="icon"><i class="fa-solid fa-book-bookmark"></i></div>
+                    <h3>Digital QRH</h3>
+                    <p style="font-size: 15px;">タスク完遂に成功した際、その「正解手順」をAI版QRHとして保存。監査ログ(Black
+                        Box)とは独立した、検証済みの確実な操作手順のみを蓄積・活用します。</p>
+                </div>
+                <div class="tile">
+                    <div class="icon"><i class="fa-solid fa-route"></i></div>
+                    <h3>最適航路の適用</h3>
+                    <p style="font-size: 15px;">検証済みの最短ルートを優先的に選択。過去の迷いやエラーを回避し、初動から最高速度でのタスク完了を実現します。</p>
+                </div>
+                <div class="tile">
+                    <div class="icon"><i class="fa-solid fa-dna"></i></div>
+                    <h3>組織への適応</h3>
+                    <p style="font-size: 15px;">繰り返すほどに、あなたの環境特有のツール操作や商習慣を学習。組織に最適化された「究極の専属機長（Captain）」へと成長を続けます。</p>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="slide-container" id="slide14">
+        <h2 class="slide-title">Fuel System: 運用コスト管理</h2>
+        <div class="content-area">
+            <h3 style="color: #fff; margin-bottom: 40px; text-align: center; font-size: 28px;">AI運用のROIを最大化し、利益を守る</h3>
+            <div class="tiled-content">
+                <div class="tile">
+                    <div class="icon"><i class="fa-solid fa-calculator"></i></div>
+                    <h3>事前見積もり (ROI予測)</h3>
+                    <p style="font-size: 15px;">
+                        ミッション開始前に必要なFuel（コスト）を算出。タスク実行前に投資対効果を評価できるため、無駄な支出を排除し、予測可能なビジネス設計を可能にします。</p>
+                </div>
+                <div class="tile">
+                    <div class="icon"><i class="fa-solid fa-gas-pump"></i></div>
+                    <h3>予算の絶対遵守 (Limit)</h3>
+                    <p style="font-size: 15px;">
+                        設定した予算上限に到達した瞬間、自動で待機モードへ移行。AI特有の「想定外の課金」や「無限ループによる損失」を物理的に阻止し、キャッシュフローを守ります。</p>
+                </div>
+                <div class="tile">
+                    <div class="icon"><i class="fa-solid fa-sliders"></i></div>
+                    <h3>原価最適化 (Optimization)</h3>
+                    <p style="font-size: 15px;">タスクの重要度に応じて使用リソースを動的に配分。品質を維持しながら、1タスクあたりの原価を最小化することで、事業全体の利益率を向上させます。
+                    </p>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="slide-container" id="slide15">
+        <h2 class="slide-title">セキュリティと信頼</h2>
+        <div class="content-area">
+            <h3 style="color: #fff; margin-bottom: 20px; text-align: center; font-size: 24px;">AIに「記憶」させず「仕事」だけを完遂させる
+            </h3>
+            <div class="tiled-content">
+                <div class="tile">
+                    <div class="icon"><i class="fa-solid fa-vault"></i></div>
+                    <h3>Vault (秘密保持金庫)</h3>
+                    <p style="font-size: 15px;">情報を「見せず」に「使わせる」。パスワードや決済情報は暗号化領域で隔離。Captainには生の文字列を渡さず、入力のみを安全に代行します。
+                    </p>
+                </div>
+                <div class="tile">
+                    <div class="icon"><i class="fa-solid fa-eye-slash"></i></div>
+                    <h3>Radar Eye (視覚保護)</h3>
+                    <p style="font-size: 15px;">画面上の個人情報をリアルタイム検知。外部サーバーへの画像送信前に機密箇所をローカルで自動黒塗り処理し、視覚経由の漏洩を物理的に遮断します。</p>
+                </div>
+                <div class="tile">
+                    <div class="icon"><i class="fa-solid fa-broom"></i></div>
+                    <h3>Data Wipe (完全消去)</h3>
+                    <p style="font-size: 15px;">任務完了と同時に作業環境(Hangar)をコンテナごと物理消去。クッキーや履歴、フォームデータなどの一切の痕跡をシステム内に残しません。</p>
+                </div>
+            </div>
+            <p style="text-align: center; margin-top: 30px; color: #888; font-size: 16px;">
+                ※ たとえECサイトの決済を伴う任務であっても、機密データはCaptainの手を介さず、完了と共にすべては無に帰ります。
+            </p>
+        </div>
+    </div>
+
+    <div class="slide-container" id="slide16">
+        <h2 class="slide-title">Future Roadmap</h2>
+        <div class="content-area">
+            <div class="timeline-layout">
+                <div class="timeline-line"></div>
+                <div class="timeline-item">
+                    <div class="timeline-dot"><i class="fa-solid fa-hand-sparkles"></i></div>
+                    <h3>Phase 1: Physical Intervention</h3>
+                    <p>デジタル空間を超え、カメラ・ロボットアーム・IoTデバイスを通じて、AIが現実世界へ物理的に干渉する。</p>
+                </div>
+                <div class="timeline-item">
+                    <div class="timeline-dot"><i class="fa-solid fa-dna"></i></div>
+                    <h3>Phase 2: Recursive Self-Improvement</h3>
+                    <p>Airportが自らのソースコードを解析・修正・改善し、人間の手を離れて自己進化のループを確立する。</p>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="slide-container splash" id="slide17">
+        <div style="text-align: center;">
+            <div style="margin-bottom: 40px;">
+                <i class="fa-solid fa-infinity"
+                    style="font-size: 80px; color: #38bdf8; text-shadow: 0 0 30px rgba(56, 189, 248, 0.5);"></i>
+            </div>
+            <h1 style="font-size: 72px;">VISION: AGI</h1>
+            <p class="subtitle" style="color: #fff; font-weight: bold; font-size: 28px;">特異点への最短ルート</p>
+            <p style="color: #ddd; margin-top: 30px; font-size: 20px;">Airportが, より優れたAirportを生み出す時代へ。</p>
+        </div>
+    </div>
+
+    <div class="slide-container splash" id="slide18">
+        <div class="title-layout" style="text-align: center;">
+            <h1 style="font-size: 60px; color: #fff;">Ready for Takeoff?</h1>
+            <div style="margin-top: 60px;">
+                <p style="font-size: 32px; color: #fff; font-weight: 600; letter-spacing: 2px;">
+                    解き放たれた「思考」で何を成し遂げますか？
+                </p>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        document.addEventListener('DOMContentLoaded', () => {
+            const slides = document.querySelectorAll('.slide-container');
+            const baseWidth = 1280;
+
+            slides.forEach(slide => {
+                const wrapper = document.createElement('div');
+                wrapper.classList.add('slide-wrapper');
+                slide.parentNode.insertBefore(wrapper, slide);
+                wrapper.appendChild(slide);
+            });
+
+            function updateScale() {
+                const wrappers = document.querySelectorAll('.slide-wrapper');
+
+                wrappers.forEach(wrapper => {
+                    const currentWidth = wrapper.clientWidth;
+                    const scale = currentWidth / baseWidth;
+
+                    const slide = wrapper.querySelector('.slide-container');
+                    if (slide) {
+                        slide.style.transform = `scale(${scale})`;
+                    }
+                });
+            }
+
+            window.addEventListener('resize', updateScale);
+            updateScale();
+            setTimeout(updateScale, 100);
+        });
+    </script>
+</body>
+
+</html>

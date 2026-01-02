@@ -1,0 +1,22 @@
+{
+    "name": "Airport-Dev",
+    "build": {
+        "dockerfile": "../Dockerfile",
+        "context": ".."
+    },
+    "runArgs": [
+        "--shm-size=2gb"
+    ],
+    "containerEnv": {
+        "DISPLAY": ":99"
+    },
+    "customizations": {
+        "vscode": {
+            "extensions": [
+                "ms-python.python",
+                "ms-playwright.playwright"
+            ]
+        }
+    },
+    "workspaceFolder": "/workspaces/Airport"
+}

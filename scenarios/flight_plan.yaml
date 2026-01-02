@@ -1,0 +1,19 @@
+tasks:
+  - name: "Google Search Demo"
+    steps:
+      - action: goto
+        url: "https://www.google.com"
+      
+      - action: type
+        selector: "textarea[name='q']"
+        text: "Airport automation agent"
+        mode: dom  # Reliable for text input
+      
+      - action: click
+        selector: "input[name='btnK']"
+        instruction: "Click the Google Search button"
+        mode: hybrid # Try DOM, fallback to Vision if needed
+        # Note: Google's search button can be tricky (hidden in dropdown)
+      
+      - action: wait
+        seconds: 2

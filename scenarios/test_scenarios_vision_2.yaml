@@ -1,0 +1,75 @@
+tasks:
+  
+  # Task 1: Hacker News Navigation (Small text targets)
+  - name: "Hacker News Vision"
+    steps:
+      - action: goto
+        url: "https://news.ycombinator.com/"
+      - action: wait
+        seconds: 3
+
+      - action: click
+        mode: llm
+        instruction: "Click the link text 'show' in the top navigation bar, typically next to 'new' and 'ask'"
+      
+      - action: wait
+        seconds: 2
+        
+      - action: click
+        mode: llm
+        instruction: "Click the title of the very first story on the list"
+
+      - action: wait
+        seconds: 2
+
+  # Task 2: OpenStreetMap Search (Map interface)
+  - name: "OpenStreetMap Vision"
+    steps:
+      - action: goto
+        url: "https://www.openstreetmap.org/"
+      - action: wait
+        seconds: 3
+
+      - action: type_vision
+        instruction: "Click the main search input field located at the top left"
+        text: "Tokyo Tower"
+      
+      - action: click
+        mode: llm
+        instruction: "Click the 'Go' button next to the search box"
+      
+      - action: wait
+        seconds: 5 # Wait for map to fly
+
+  # Task 3: TodoMVC (Dynamic SPA)
+  - name: "TodoMVC Vision"
+    steps:
+      - action: goto
+        url: "https://todomvc.com/examples/react/dist/"
+      - action: wait
+        seconds: 3
+
+      # Add Task 1
+      - action: type_vision
+        instruction: "Click the 'What needs to be done?' input box"
+        text: "Buy Milk"
+      - action: key
+        key: "Enter"
+      
+      # Add Task 2 (Focus is usually kept, but we click again to be safe in Vision mode)
+      - action: type_vision
+        instruction: "Click the input box again to add another task"
+        text: "Walk Dog"
+      - action: key
+        key: "Enter"
+
+      - action: wait
+        seconds: 1
+
+      # Complete Task 1 (Click checkbox)
+      - action: click
+        mode: llm
+        instruction: "Click the circle checkbox to the left of 'Buy Milk'" # Challenge: distinguishing items
+
+      - action: wait
+        seconds: 2

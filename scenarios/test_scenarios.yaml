@@ -1,0 +1,67 @@
+tasks:
+  # Scenario 1: Wikipedia Information Retrieval
+  - name: "Wikipedia Research"
+    steps:
+      - action: goto
+        url: "https://en.wikipedia.org/wiki/Main_Page"
+      
+      - action: type
+        selector: "input[name='search']"
+        text: "Autonomous agent"
+      
+      - action: click
+        selector: "button.cdx-button"  # The search magnifying glass button
+        mode: hybrid
+      
+      - action: wait
+        seconds: 2
+
+  # Scenario 2: Shopping Demo (SauceDemo) - Heavily relies on LLM Vision
+  - name: "E-Commerce Shopping (Visual)"
+    steps:
+      - action: goto
+        url: "https://www.saucedemo.com/"
+
+      # Login (Standard DOM)
+      - action: type
+        selector: "#user-name"
+        text: "standard_user"
+      - action: type
+        selector: "#password"
+        text: "secret_sauce"
+      - action: click
+        selector: "#login-button"
+
+      # Select Item (LLM Vision) - "Click the Backpack"
+      - action: click
+        mode: llm
+        instruction: "Click the link or title for the Sauce Labs Backpack"
+      
+      - action: wait
+        seconds: 4
+
+      # Add to Cart (LLM Vision) - "Click Add to Cart"
+      - action: click
+        mode: llm
+        instruction: "Click the 'Add to cart' button"
+
+  # Scenario 3: Form Filling (Input validation)
+  - name: "Form Submission Practice"
+    steps:
+      - action: goto
+        url: "https://demoqa.com/text-box"
+      
+      - action: type
+        selector: "#userName"
+        text: "Airport Agent"
+      
+      - action: type
+        selector: "#userEmail"
+        text: "agent@airport.ai"
+      
+      - action: click
+        selector: "#submit"
+        mode: hybrid
+      
+      - action: wait
+        seconds: 2

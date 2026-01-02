@@ -1,0 +1,25 @@
+tasks:
+  - name: "TUT Phone Number Search (DDG)"
+    steps:
+      - action: goto
+        url: "https://duckduckgo.com/"
+      - action: wait
+        seconds: 5
+
+      # Vision Input
+      - action: type_vision
+        instruction: "Click the big search input box in the middle"
+        text: "Tokyo University of Technology Hachioji Campus phone number"
+      
+      - action: key
+        key: "Enter"
+
+      - action: wait
+        seconds: 8
+
+      # Reading
+      - action: read
+        instruction: "Read the phone number of Tokyo University of Technology Hachioji Campus from the search results."
+      
+      - action: wait
+        seconds: 2

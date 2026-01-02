@@ -1,0 +1,11 @@
+__pycache__/
+*.pyc
+.env
+node_modules/
+.next/
+results/logs/
+results/screenshots/
+results/videos/
+*.webm
+*.png
+.DS_Store

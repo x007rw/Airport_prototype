@@ -1,0 +1,33 @@
+/usr/local/lib/python3.10/dist-packages/google/api_core/_python_version_support.py:266: FutureWarning: You are using a Python version (3.10.12) which Google will stop supporting in new releases of google.api_core once it reaches its end of life (2026-10-04). Please upgrade to the latest Python version, or at least Python 3.11, to continue receiving updates for google.api_core past that date.
+  warnings.warn(message, FutureWarning)
+/workspaces/Airport/src/llm_core.py:1: FutureWarning: 
+
+All support for the `google.generativeai` package has ended. It will no longer be receiving 
+updates or bug fixes. Please switch to the `google.genai` package as soon as possible.
+See README for more details:
+
+https://github.com/google-gemini/deprecated-generative-ai-python/blob/main/README.md
+
+  import google.generativeai as genai
+✈️ Running Web Scenario: scenarios/task_tut_phone_ddg.yaml
+✈️ Loading Flight Plan: scenarios/task_tut_phone_ddg.yaml
+
+🔹 Executing Task: TUT Phone Number Search (DDG)
+🛫 Starting Browser Session with Video Recording...
+  Step 1: goto
+🧭 Navigating to: https://duckduckgo.com/
+  Step 2: wait
+  Step 3: type_vision
+👁️⌨️ Vision Typing: 'Tokyo University of Technology Hachioji Campus phone number' -> Target: 'Click the big search input box in the middle'
+Mode: LLM Vision -> Instruction: 'Click the big search input box in the middle'
+🖱️ Clicking at (480, 69)
+    ↳ Typed (Inserted): Tokyo University of Technology Hachioji Campus phone number
+  Step 4: key
+🎹 Pressing Key: 'Enter'
+  Step 5: wait
+  Step 6: read
+👁️📄 Vision Reading: 'Read the phone number of Tokyo University of Technology Hachioji Campus from the search results.'
+    📝 Answer: +81 42 637 2111
+  Step 7: wait
+🛬 Ending Session...
+🎥 Video saved to: /workspaces/Airport/results/videos/8f1da348c0e229f8f4226f7fedffb44d.webm

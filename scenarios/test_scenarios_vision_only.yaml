@@ -1,0 +1,40 @@
+tasks:
+  - name: "Vision Only Shopping"
+    steps:
+      - action: goto
+        url: "https://www.saucedemo.com/"
+      
+      - action: wait
+        seconds: 3
+      
+      # Login (Vision Only)
+      - action: type_vision
+        instruction: "Click the 'Username' input box"
+        text: "standard_user"
+      
+      - action: type_vision
+        instruction: "Click the 'Password' input box"
+        text: "secret_sauce"
+        
+      - action: click
+        mode: llm
+        instruction: "Click the large login button" # "Login" text might be small
+
+      - action: wait
+        seconds: 4
+        
+      # Select Item (Vision Only)
+      - action: click
+        mode: llm
+        instruction: "Click the link text 'Sauce Labs Backpack'" # Specific text
+      
+      - action: wait
+        seconds: 4
+
+      # Add to Cart (Vision Only)
+      - action: click
+        mode: llm
+        instruction: "Click the 'Add to cart' button"
+      
+      - action: wait
+        seconds: 2

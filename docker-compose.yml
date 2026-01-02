@@ -1,0 +1,14 @@
+services:
+  airport-atc:
+    build: .
+    volumes:
+      # ホスト側のフォルダを、VS Codeが認識しているパスに直接マウントする
+      - ./logs:/workspaces/Airport/logs
+      - ./screenshots:/workspaces/Airport/screenshots
+    environment:
+      - DISPLAY=:99
+      - SCREEN_WIDTH=1280
+      - SCREEN_HEIGHT=720
+    ports:
+      - "5900:5900"
+    shm_size: '2gb'

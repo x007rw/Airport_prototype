@@ -1,0 +1,38 @@
+tasks:
+  - name: "TUT Phone Number Search"
+    steps:
+      - action: goto
+        url: "https://www.google.com/"
+      - action: wait
+        seconds: 3
+
+      # Vision Input
+      - action: type_vision
+        instruction: "Click the main search bar in the center of the page"
+        text: "Tokyo University of Technology Hachioji Campus Phone Number"
+      
+      - action: key
+        key: "Enter"
+      
+      - action: wait
+        seconds: 1
+
+      - action: key
+        key: "Enter"
+
+      - action: wait
+        seconds: 10 # Wait longer for SERP loading
+
+      # Scroll down a bit to ensure visibility
+      - action: key
+        key: "PageDown"
+      
+      - action: wait
+        seconds: 3
+
+      # Vision Reading
+      - action: read
+        instruction: "What is the phone number for Tokyo University of Technology Hachioji Campus shown in the search results? Even if it's in the knowledge panel on the right."
+      
+      - action: wait
+        seconds: 2

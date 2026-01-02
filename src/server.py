@@ -149,3 +149,243 @@ def stream_video(filename: str):
     if not os.path.exists(video_path):
         raise HTTPException(status_code=404, detail="Video not found")
     return FileResponse(video_path, media_type="video/webm")
+
+
+# ============================================
+# Chat Mission Endpoints (AI-Powered Planning)
+# ============================================
+
+from .llm_core import VisionCore, Attendant
+import yaml
+import json
+
+# Current plan state
+CURRENT_PLAN = None
+
+# Attendant instance (maintains conversation history)
+ATTENDANT = Attendant()
+
+class ChatRequest(BaseModel):
+    message: str
+
+class ChatMissionRequest(BaseModel):
+    instruction: str
+
+class ExecutePlanRequest(BaseModel):
+    plan: list
+    summary: Optional[str] = None
+
+@app.post("/api/chat")
+def chat_with_attendant(req: ChatRequest):
+    """
+    Attendantとの自然な会話。意図を判断し、適切に応答する。
+    """
+    global CURRENT_PLAN
+    
+    result = ATTENDANT.chat(req.message)
+    
+    # If a plan was generated, store it
+    if result.get("plan"):
+        CURRENT_PLAN = result["plan"]
+    
+    return result
+
+@app.post("/api/chat/reset")
+def reset_chat():
+    """会話履歴をリセット"""
+    global ATTENDANT, CURRENT_PLAN
+    ATTENDANT = Attendant()
+    CURRENT_PLAN = None
+    return {"message": "Chat history cleared"}
+
+@app.post("/api/plan")
+def generate_plan(req: ChatMissionRequest):
+    """
+    自然言語の指示からフライトプランを生成する（実行はしない）
+    """
+    vision = VisionCore()
+    plan_data = vision.generate_plan(req.instruction)
+    
+    global CURRENT_PLAN
+    CURRENT_PLAN = plan_data
+    
+    return plan_data
+
+@app.post("/api/execute")
+def execute_plan(req: ExecutePlanRequest, background_tasks: BackgroundTasks):
+    """
+    生成されたプランを実行する
+    """
+    global CURRENT_PROCESS, CURRENT_FLIGHT_ID
+    
+    if CURRENT_PROCESS and CURRENT_PROCESS.poll() is None:
+        raise HTTPException(status_code=400, detail="Mission already in progress")
+    
+    # Convert plan to YAML format for autopilot
+    yaml_content = {
+        "tasks": [{
+            "name": req.summary or "Dynamic Mission",
+            "steps": []
+        }]
+    }
+    
+    for step in req.plan:
+        action = step.get("action")
+        yaml_step = {"action": action}
+        
+        # Map parameters based on action type
+        if action == "goto":
+            yaml_step["url"] = step.get("url")
+        elif action == "click":
+            yaml_step["selector"] = step.get("selector")
+            yaml_step["mode"] = step.get("mode", "hybrid")
+        elif action == "click_vision":
+            yaml_step["action"] = "click"
+            yaml_step["mode"] = "llm"
+            yaml_step["instruction"] = step.get("instruction")
+        elif action == "type":
+            yaml_step["selector"] = step.get("selector")
+            yaml_step["text"] = step.get("text")
+        elif action == "type_vision":
+            yaml_step["instruction"] = step.get("instruction")
+            yaml_step["text"] = step.get("text")
+        elif action == "key":
+            yaml_step["key"] = step.get("key")
+        elif action == "read":
+            yaml_step["instruction"] = step.get("instruction")
+        elif action == "wait":
+            yaml_step["seconds"] = step.get("seconds", 1)
+        elif action == "launch_app":
+            yaml_step["command"] = step.get("command")
+        
+        yaml_content["tasks"][0]["steps"].append(yaml_step)
+    
+    # Save dynamic YAML
+    dynamic_yaml_path = "/workspaces/Airport/scenarios/dynamic_mission.yaml"
+    with open(dynamic_yaml_path, "w", encoding="utf-8") as f:
+        yaml.dump(yaml_content, f, allow_unicode=True, default_flow_style=False)
+    
+    # Initialize Flight Recorder
+    CURRENT_FLIGHT_ID = history_mgr.start_flight()
+    history_mgr.log_event(CURRENT_FLIGHT_ID, "PLAN", json.dumps(req.plan, ensure_ascii=False))
+    
+    # Run autopilot with generated YAML
+    command = ["python", "run_airport.py", "web", "dynamic_mission.yaml"]
+    background_tasks.add_task(run_process_wrapper, command, CURRENT_FLIGHT_ID)
+    
+    return {
+        "message": "Mission started",
+        "flight_id": CURRENT_FLIGHT_ID,
+        "yaml_path": dynamic_yaml_path
+    }
+
+@app.get("/api/current_plan")
+def get_current_plan():
+    """現在のプランを取得"""
+    return CURRENT_PLAN or {"plan": [], "summary": "No plan generated yet"}
+
+
+# ============================================
+# ReAct Agent Endpoints (Autonomous Mode)
+# ============================================
+
+from .react_agent import ReActAgent
+from .main import ATC
+
+# ReAct state
+REACT_AGENT = None
+REACT_RESULT = None
+REACT_RUNNING = False
+REACT_STEPS = []
+
+class ReActRequest(BaseModel):
+    goal: str
+    max_steps: Optional[int] = 15
+
+def run_react_wrapper(goal: str, flight_id: str, max_steps: int = 15):
+    """ReActエージェントをバックグラウンドで実行"""
+    global REACT_AGENT, REACT_RESULT, REACT_RUNNING, REACT_STEPS
+    
+    REACT_RUNNING = True
+    REACT_STEPS = []
+    
+    try:
+        atc = ATC()
+        agent = ReActAgent(atc)
+        agent.max_steps = max_steps
+        REACT_AGENT = agent
+        
+        # コールバックで各ステップをログに記録
+        def on_step(step_num, thought, screenshot):
+            step_data = {
+                "step": step_num,
+                "observation": thought.get("observation", ""),
+                "reasoning": thought.get("reasoning", ""),
+                "action": thought.get("action", ""),
+                "params": thought.get("params", {}),
+                "screenshot": screenshot
+            }
+            REACT_STEPS.append(step_data)
+            history_mgr.log_event(flight_id, "REACT", json.dumps(step_data, ensure_ascii=False))
+        
+        result = agent.run(goal, on_step=on_step)
+        REACT_RESULT = result
+        
+        # 終了処理
+        status = "COMPLETED" if result["success"] else "FAILED"
+        history_mgr.log_event(flight_id, "SYSTEM", f"ReAct finished: {result['final_result']}")
+        history_mgr.end_flight(flight_id, status)
+        
+        atc.stop_session()
+        
+    except Exception as e:
+        REACT_RESULT = {"success": False, "error": str(e)}
+        history_mgr.log_event(flight_id, "ERROR", str(e))
+        history_mgr.end_flight(flight_id, "CRASHED")
+    finally:
+        REACT_RUNNING = False
+
+@app.post("/api/react")
+def start_react_agent(req: ReActRequest, background_tasks: BackgroundTasks):
+    """
+    ReActエージェントを起動（自律モード）
+    画面を見ながら動的にゴールに向かって行動する
+    """
+    global CURRENT_FLIGHT_ID, REACT_RUNNING, REACT_STEPS, REACT_RESULT
+    
+    if REACT_RUNNING:
+        raise HTTPException(status_code=400, detail="ReAct agent is already running")
+    
+    # Initialize Flight Recorder
+    CURRENT_FLIGHT_ID = history_mgr.start_flight()
+    REACT_STEPS = []
+    REACT_RESULT = None
+    
+    history_mgr.log_event(CURRENT_FLIGHT_ID, "SYSTEM", f"ReAct Agent started with goal: {req.goal}")
+    
+    # Run in background
+    background_tasks.add_task(run_react_wrapper, req.goal, CURRENT_FLIGHT_ID, req.max_steps)
+    
+    return {
+        "message": "ReAct Agent started",
+        "flight_id": CURRENT_FLIGHT_ID,
+        "goal": req.goal
+    }
+
+@app.get("/api/react/status")
+def get_react_status():
+    """ReActエージェントの状態を取得"""
+    return {
+        "running": REACT_RUNNING,
+        "steps": REACT_STEPS,
+        "result": REACT_RESULT
+    }
+
+@app.post("/api/react/stop")
+def stop_react_agent():
+    """ReActエージェントを停止"""
+    global REACT_RUNNING
+    # Note: 現在の実装では途中停止は難しいが、フラグを立てておく
+    REACT_RUNNING = False
+    return {"message": "Stop signal sent"}
+

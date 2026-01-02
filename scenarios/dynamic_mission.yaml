@@ -1,0 +1,10 @@
+tasks:
+- name: Amazonにアクセスし、「イヤホン」というキーワードで検索を実行します。
+  steps:
+  - action: goto
+    url: https://www.amazon.co.jp
+  - action: type_vision
+    instruction: 画面上部の検索ボックス
+    text: イヤホン
+  - action: key
+    key: Enter

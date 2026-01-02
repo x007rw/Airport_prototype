@@ -11,13 +11,20 @@ fi
 rm -rf frontend/.next/dev/lock 2>/dev/null
 sleep 2
 
-# 2. バックエンド起動
+# 2. 環境変数の読み込み
+echo "🔑 Loading environment variables..."
+if [ -f .env ]; then
+    export $(cat .env | grep -v '^#' | xargs)
+    echo "   GOOGLE_API_KEY is set: ${GOOGLE_API_KEY:0:10}..."
+fi
+
+# 3. バックエンド起動
 echo "🔹 Launching ATC Backend (Port 8000)..."
 export PYTHONPATH=$PYTHONPATH:.
 # ログに出力してバックグラウンド実行
 uvicorn src.server:app --host 0.0.0.0 --port 8000 > results/server_output.log 2>&1 &
 
-# 3. バックエンドの起動待ち (ヘルスチェック)
+# 4. バックエンドの起動待ち (ヘルスチェック)
 echo "⏳ Waiting for Backend to stabilize..."
 for i in {1..15}; do
     if curl -s http://localhost:8000/api/status > /dev/null; then
@@ -31,7 +38,7 @@ for i in {1..15}; do
     sleep 1
 done
 
-# 4. フロントエンド起動
+# 5. フロントエンド起動
 echo "🔹 Launching Cockpit UI (Port 3000)..."
 cd frontend
 # 明示的にポート3000を指定し、バックグラウンドへ

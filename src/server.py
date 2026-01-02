@@ -331,12 +331,16 @@ def run_react_wrapper(goal: str, flight_id: str, max_steps: int = 15):
         result = agent.run(goal, on_step=on_step)
         REACT_RESULT = result
         
+        # 動画パスをログに記録
+        if result.get("video_path"):
+            history_mgr.log_event(flight_id, "VIDEO", f"Recording saved: {result['video_path']}")
+        
         # 終了処理
         status = "COMPLETED" if result["success"] else "FAILED"
         history_mgr.log_event(flight_id, "SYSTEM", f"ReAct finished: {result['final_result']}")
         history_mgr.end_flight(flight_id, status)
         
-        atc.stop_session()
+        # 注意: stop_session()はReActAgent.run()内で既に呼ばれている
         
     except Exception as e:
         REACT_RESULT = {"success": False, "error": str(e)}

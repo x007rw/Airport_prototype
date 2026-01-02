@@ -58,14 +58,28 @@ class ATC:
         return self.page
 
     def stop_session(self):
-        """Ends the browser session."""
+        """Ends the browser session and returns video path if available."""
         print("🛬 Ending Session...")
+        video_path = None
+        
+        # 動画パスはcontext.close()の前に取得する必要がある
+        if self.page and hasattr(self.page, 'video') and self.page.video:
+            try:
+                video_path = self.page.video.path()
+            except Exception:
+                pass
+        
         if self.context: 
-            self.context.close() # 重要: これで動画ファイルが確定される
-            path = self.page.video.path() if self.page else "unknown"
-            print(f"🎥 Video saved to: {path}")
+            self.context.close()  # これで動画ファイルが確定される
             
-        if self.page: self.page.close()
+        if video_path:
+            print(f"🎥 Video saved to: {video_path}")
+            
+        if self.page: 
+            try:
+                self.page.close()
+            except Exception:
+                pass
         if self.browser: self.browser.close()
         if self.playwright: self.playwright.stop()
         
@@ -73,6 +87,8 @@ class ATC:
         self.context = None
         self.browser = None
         self.playwright = None
+        
+        return video_path
 
     def nav(self, url):
         """Navigates to a URL."""

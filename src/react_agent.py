@@ -59,7 +59,8 @@ class ReActAgent:
                 "success": bool,
                 "steps_taken": int,
                 "history": list,
-                "final_result": str
+                "final_result": str,
+                "video_path": str | None
             }
         """
         print(f"\n{'='*50}")
@@ -69,9 +70,10 @@ class ReActAgent:
         
         self.history = []
         step_count = 0
+        video_path = None
         
         try:
-            # ブラウザセッション開始
+            # ブラウザセッション開始（動画録画も開始）
             if not self.atc.page:
                 self.atc.start_session()
             
@@ -103,20 +105,24 @@ class ReActAgent:
                 # 3. CHECK: ゴール達成 or 完了判定
                 if thought.get("action") == "done":
                     print(f"\n✅ Goal achieved!")
+                    video_path = self.atc.stop_session()
                     return {
                         "success": True,
                         "steps_taken": step_count,
                         "history": self.history,
-                        "final_result": thought.get("result", "Task completed")
+                        "final_result": thought.get("result", "Task completed"),
+                        "video_path": video_path
                     }
                 
                 if thought.get("action") == "fail":
                     print(f"\n❌ Agent determined task cannot be completed")
+                    video_path = self.atc.stop_session()
                     return {
                         "success": False,
                         "steps_taken": step_count,
                         "history": self.history,
-                        "final_result": thought.get("reason", "Failed to complete task")
+                        "final_result": thought.get("reason", "Failed to complete task"),
+                        "video_path": video_path
                     }
                 
                 # 4. ACT: アクションを実行
@@ -130,20 +136,27 @@ class ReActAgent:
             
             # 最大ステップ数到達
             print(f"\n⚠️ Max steps ({self.max_steps}) reached")
+            video_path = self.atc.stop_session()
             return {
                 "success": False,
                 "steps_taken": step_count,
                 "history": self.history,
-                "final_result": "Max steps reached without completing goal"
+                "final_result": "Max steps reached without completing goal",
+                "video_path": video_path
             }
             
         except Exception as e:
             print(f"\n💥 Error: {e}")
+            try:
+                video_path = self.atc.stop_session()
+            except:
+                pass
             return {
                 "success": False,
                 "steps_taken": step_count,
                 "history": self.history,
-                "final_result": f"Error: {str(e)}"
+                "final_result": f"Error: {str(e)}",
+                "video_path": video_path
             }
     
     def _capture_screen(self, step: int) -> str:
@@ -205,12 +218,13 @@ class ReActAgent:
    - params: {{"target": "何を読み取るか", "result": "読み取った内容"}}
 
 8. **get_url** - 現在のページのURLを取得してメモリに保存
-   - params: {{"label": "保存する名前（例：product_url）"}}
-   - 注意: これで取得したURLはsave_fileで使えます
+   - params: {{"label": "product_url"}}  ← ラベル名は product_url を使ってください
+   - 注意: これで取得したURLはsave_fileで {{{{url:product_url}}}} として参照できます
 
 9. **save_file** - テキストをファイルに直接保存（Linuxコマンド不要）
    - params: {{"filename": "results/output.txt", "content": "保存する内容", "append": true/false}}
-   - 注意: get_urlで取得したURLを使う場合は content に "{{{{url:label}}}}" と書くと置換されます
+   - 注意: get_urlで取得したURLを使う場合は content に "{{{{url:product_url}}}}" と書くと自動置換されます
+   - 重要: **save_file実行後は必ず done アクションでタスク完了を宣言してください**
 
 10. **done** - ゴール達成、タスク完了
     - params: {{"result": "達成した結果の説明"}}

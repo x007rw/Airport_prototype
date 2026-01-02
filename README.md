@@ -1,64 +1,122 @@
-# ✈️ Airport: 次世代型 AI GUI エージェント・プラットフォーム
+# ✈️ Project Airport
 
-**Airport** は、Webブラウザとデスクトップアプリケーションをシームレスに操作する、高度な自律型GUIエージェント・フレームワークです。
+**AI-Powered Autonomous GUI Automation Agent**
 
-**Google Gemini 2.0 Flash** の視覚能力（Vision）を核としており、人間と同じように画面を「見て」理解し、ボタンのクリック、情報の読み取り、複雑なタスクの完遂を自律的に行います。
-
----
-
-## 🌟 主な特徴
-
-*   **ハイブリッドWebオートメーション**: DOMセレクタの正確さと、AIによる視覚的理解（Vision）を統合。UIの変更にも柔軟に対応します。
-*   **Vision-Only デスクトップ制御**: OSネイティブアプリ（電卓、メモ帳、独自ツール等）を、視覚情報のみで操作可能。
-*   **統合コックピット (GUI)**: Next.js製の洗練されたダッシュボードから、ミッションの発令、実行ログの監視、録画の再生が可能です。
-*   **自律的推論と修復**: タスクが失敗しても、AIが原因を分析し、自力で代替ルートを探して目的を果たします。
-*   **フライトレコーダー**: 実行中の全ての操作を動画として記録。後からの監査やプレゼンに活用できます。
+人間のように「見て、操作する」ことができる自律型AIエージェント。
+Web・デスクトップ・外部システムの境界を超え、あらゆるGUI操作を自然言語で指示できます。
 
 ---
 
-## 📂 プロジェクト構成
+## 🌟 特徴
 
-```text
-/workspaces/Airport/
-├── start_cockpit.sh    # 【重要】システム一括起動スクリプト
-├── run_airport.py      # CLIエントリーポイント
-├── src/                # バックエンド・エンジン（FastAPI, Playwright, Gemini）
-├── frontend/           # コックピットUI（Next.js + Tailwind CSS）
-├── scenarios/          # ワークフロー定義ファイル (YAML)
-├── scripts/            # 統合デモ・スクリプト
-├── results/            # 実行結果（ログ、スクリーンショット、動画）
-└── docs/               # 調査報告書・技術資料
+### 1. 視覚ベースの操作 (Vision-First)
+HTML/DOMに依存せず、**画面の見た目**からAIが判断して操作します。
+- Gemini 3 Flash 搭載による高精度な視覚認識
+- クリック位置の自動検出
+- 画面上のテキスト抽出
+
+### 2. クロスプラットフォーム制御
+ブラウザだけでなく、ネイティブデスクトップアプリも操作可能。
+- Playwright によるステルスブラウザ制御
+- PyAutoGUI によるOS直接制御
+- ホットキー操作 (Ctrl+S, Alt+Tab など)
+
+### 3. Mission Control (Cockpit GUI)
+直感的なWebダッシュボードから、自然言語でミッションを発令。
+- **Attendant**: AIアシスタントとの対話によるプランニング
+- **Live Viewport**: リアルタイムの操作監視
+- **Flight Recorder**: 全ミッションのBlack Box記録
+
+### 4. Black Box (フライトレコーダー)
+エージェントの全ての思考・行動・結果を記録。
+- 時系列ログ (JSONL形式)
+- ミッション成否の追跡
+- 事後分析とデバッグ
+
+---
+
+## 📁 プロジェクト構造
+
+```
+Airport/
+├── frontend/           # Next.js コックピットUI
+├── src/                # コアエンジン
+│   ├── main.py         # ATC (Air Traffic Controller)
+│   ├── llm_core.py     # Gemini Vision 統合
+│   ├── desktop_controller.py  # デスクトップ操作
+│   ├── history_manager.py     # Black Box記録
+│   └── server.py       # FastAPI バックエンド
+├── scripts/            # ミッションスクリプト
+│   ├── task_weather.py # 天気予報タスク
+│   └── debug/          # デバッグ用ツール
+├── scenarios/          # YAMLワークフロー定義
+├── docs/               # ドキュメント
+│   ├── ROADMAP.md
+│   └── archive/        # 過去の開発レポート
+└── results/            # ミッション成果物 (.gitignore)
+    ├── flights/        # Black Boxデータ
+    └── videos/         # 操作録画
 ```
 
 ---
 
 ## 🚀 クイックスタート
 
-プロトタイプのコックピットを立ち上げるには、以下のコマンドを実行します。
-
+### 1. 環境変数の設定
 ```bash
-chmod +x start_cockpit.sh
+echo "GOOGLE_API_KEY=your_api_key_here" > .env
+```
+
+### 2. 依存関係のインストール
+```bash
+pip install -r requirements.txt
+cd frontend && npm install && cd ..
+```
+
+### 3. コックピット起動
+```bash
 ./start_cockpit.sh
 ```
 
-### 🌍 アクセス先
-*   **メイン・コックピット**: `http://localhost:3000`
-*   **API ドキュメント**: `http://localhost:8000/docs`
+ブラウザで `http://localhost:3000` にアクセス。
 
 ---
 
-## 🧠 アーキテクチャ
+## 🎮 使い方
 
-### Vision Core (`src/llm_core.py`)
-Gemini 2.0 Flash を使用して画面を解析します。
-*   ボタンや入力エリアの**座標特定**
-*   画面上の文字情報（電話番号、天気等）の**テキスト抽出**
-
-### ATC Backend (`src/server.py`)
-Python (FastAPI) で構築された管制システムです。フロントエンドからの指令を受け取り、Captain（エージェント）にミッションを割り当てます。
-
-### Cockpit UI (`frontend/`)
-Next.js によるモダンなダッシュボードです。プロセスのリアルタイム監視と、フライト情報の可視化を担います。
+1. **Attendant** に自然言語で指示（例：「東京の天気を調べて」）
+2. **TAKE-OFF** ボタンでミッション開始
+3. **Live Viewport** で進行状況を監視
+4. 完了後、**Flight Recorder** で詳細ログを確認
 
 ---
-*Created by Project Airport Team - Empowering AI to act.*
+
+## 🛠️ 技術スタック
+
+| カテゴリ | 技術 |
+|---------|------|
+| AI/Vision | Gemini 3 Flash Preview |
+| Web自動化 | Playwright |
+| Desktop自動化 | PyAutoGUI |
+| Backend | FastAPI |
+| Frontend | Next.js, Tailwind CSS |
+| Recording | FFmpeg |
+
+---
+
+## 📜 ライセンス
+
+MIT License
+
+---
+
+## 🔮 ロードマップ
+
+- [ ] 動的プランニング (AIがその場でスクリプト生成)
+- [ ] Hangar (Docker-in-Docker による隔離実行)
+- [ ] Windows/Mac 対応
+- [ ] Multi-Agent 協調
+
+---
+
+**Built with 💙 by the Airport Team**

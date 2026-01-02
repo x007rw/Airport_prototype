@@ -1,9 +1,26 @@
-# --- Python (Backend) ---
+# --- Environment Variables (CRITICAL) ---
+.env
+.env.*
+!.env.example
+*.key
+*.pem
+*.secret
+
+# --- Runtime Data & Logs (Airport Specific) ---
+results/
+outputs/
+logs/
+history/
+*.log
+*.webm
+*.png
+*.jpg
+server_execution.log
+
+# --- Python ---
 __pycache__/
 *.py[cod]
 *$py.class
-*.so
-.Python
 env/
 venv/
 .venv/
@@ -11,31 +28,17 @@ build/
 dist/
 *.egg-info/
 
-# --- Node.js / Next.js (Frontend) ---
+# --- Node.js / Next.js ---
 node_modules/
-.next/
-out/
-build/
-.vercel
-*.tsbuildinfo
+frontend/.next/
+frontend/out/
+frontend/build/
 npm-debug.log*
 yarn-debug.log*
-yarn-error.log*
+pnpm-debug.log*
+.vercel
 
-# --- Environment Variables ---
-.env
-.env.*
-!.env.example
-
-# --- Project Artifacts & External Tools ---
-results/
-outputs/
-logs/
-noVNC/
-*.log
-*.webm
-
-# --- OS & IDEs ---
+# --- System & IDE ---
 .DS_Store
 Thumbs.db
 .vscode/

@@ -11,7 +11,7 @@ class VisionCore:
             self.client = None
         else:
             genai.configure(api_key=self.api_key)
-            self.model = genai.GenerativeModel('gemini-2.0-flash')
+            self.model = genai.GenerativeModel('gemini-3-flash-preview')
 
     def analyze_image(self, image_path, instruction):
         """

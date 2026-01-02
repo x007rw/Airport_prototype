@@ -1,26 +1,9 @@
-# --- Environment Variables (CRITICAL) ---
-.env
-.env.*
-!.env.example
-*.key
-*.pem
-*.secret
-
-# --- Runtime Data & Logs (Airport Specific) ---
-results/
-outputs/
-logs/
-history/
-*.log
-*.webm
-*.png
-*.jpg
-server_execution.log
-
-# --- Python ---
+# --- Python (Backend) ---
 __pycache__/
 *.py[cod]
 *$py.class
+*.so
+.Python
 env/
 venv/
 .venv/
@@ -28,20 +11,53 @@ build/
 dist/
 *.egg-info/
 
-# --- Node.js / Next.js ---
+# --- Node.js / Next.js (Frontend) ---
 node_modules/
-frontend/.next/
-frontend/out/
-frontend/build/
+.next/
+out/
+build/
+.vercel
+*.tsbuildinfo
 npm-debug.log*
 yarn-debug.log*
-pnpm-debug.log*
-.vercel
+yarn-error.log*
 
-# --- System & IDE ---
+# --- Environment Variables & Secrets ---
+.env
+.env.*
+!.env.example
+*.pem
+*.key
+
+# --- Airport Mission Data (Black Box / Flight Recorder) ---
+results/
+outputs/
+logs/
+results/flights/
+results/videos/
+results/screenshots/
+*.webm
+*.png
+*.jpg
+
+# --- External Tools ---
+noVNC/
+playwright-report/
+test-results/
+
+# --- Logs ---
+*.log
+
+# --- OS & IDEs ---
 .DS_Store
 Thumbs.db
 .vscode/
 .idea/
 *.swp
 *.swo
+*~
+
+# --- Temporary & Cache ---
+tmp/
+temp/
+.cache/

@@ -20,6 +20,9 @@ echo "🔑 Loading environment variables..."
 if [ -f .env ]; then
     export $(cat .env | grep -v '^#' | xargs)
     echo "   GOOGLE_API_KEY is set: ${GOOGLE_API_KEY:0:10}..."
+    # .env でポート指定があれば反映
+    BACKEND_PORT="${BACKEND_PORT:-${API_PORT:-8000}}"
+    FRONTEND_PORT="${FRONTEND_PORT:-${UI_PORT:-3000}}"
 fi
 
 # 3. バックエンド起動

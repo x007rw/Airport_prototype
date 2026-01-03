@@ -91,6 +91,14 @@ def run_process_wrapper(command: List[str], flight_id: str):
             log_line(f"[ERROR] {err_msg}", "ERROR")
             history_mgr.end_flight(flight_id, "CRASHED")
         finally:
+            # Cleanup temporary dynamic mission file if present (last arg)
+            try:
+                yaml_arg = command[-1] if command else None
+                if yaml_arg and yaml_arg.startswith(str(RESULTS_DIR)) and yaml_arg.endswith(".yaml") and os.path.exists(yaml_arg):
+                    os.remove(yaml_arg)
+                    log_line(f"[SYSTEM] Removed temp plan: {yaml_arg}", "SYSTEM")
+            except Exception as cleanup_err:
+                log_line(f"[WARN] Temp plan cleanup failed: {cleanup_err}", "SYSTEM")
             CURRENT_PROCESS = None
 
 @app.get("/api/status")

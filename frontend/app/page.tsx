@@ -8,7 +8,7 @@ import {
   Send, User, Bot, Loader2, Rocket, History, HardDrive,
   Sparkles, ArrowRight, Clock, Target, Zap, RefreshCw,
   MessageSquare, ThumbsUp, HelpCircle, Lightbulb, Brain,
-  Eye, MousePointer, Keyboard, ScrollText
+  Eye, MousePointer, Keyboard, ScrollText, Camera, Maximize2, Cloud, MousePointer2
 } from "lucide-react";
 import clsx from "clsx";
 
@@ -72,7 +72,7 @@ export default function Home() {
   const [input, setInput] = useState("");
   const [logs, setLogs] = useState<string>("");
   const [status, setStatus] = useState<"running" | "idle">("idle");
-  const [activeTab, setActiveTab] = useState<"plan" | "react" | "live" | "recorder">("plan");
+  const [activeTab, setActiveTab] = useState<"plan" | "react" | "viewport" | "recorder">("plan");
   const [isThinking, setIsThinking] = useState(false);
 
   // Flight Plan State (通常モード)
@@ -85,6 +85,11 @@ export default function Home() {
   const [reactSteps, setReactSteps] = useState<ReActStep[]>([]);
   const [reactRunning, setReactRunning] = useState(false);
   const [reactResult, setReactResult] = useState<any>(null);
+  const [awaitingUser, setAwaitingUser] = useState(false);
+  const [userQuestion, setUserQuestion] = useState<string | null>(null);
+  const [interventionInput, setInterventionInput] = useState("");
+  const [isResuming, setIsResuming] = useState(false);
+  const [screenshot, setScreenshot] = useState<string | null>(null);
 
   // Recorder State
   const [flights, setFlights] = useState<Flight[]>([]);
@@ -102,10 +107,21 @@ export default function Home() {
         // Check normal status
         const statusRes = await axios.get(`${API_URL}/status`);
         const currentStatus = statusRes.data.status;
+        if (statusRes.data.screenshot) {
+          setScreenshot(statusRes.data.screenshot);
+        }
 
         // Check ReAct status
         const reactRes = await axios.get(`${API_URL}/react/status`);
         setReactRunning(reactRes.data.running);
+        setAwaitingUser(reactRes.data.awaiting_user || false);
+        setUserQuestion(reactRes.data.question || null);
+
+        // Get screenshot from ReAct status
+        if (reactRes.data.screenshot) {
+          setScreenshot(reactRes.data.screenshot);
+        }
+
         if (reactRes.data.steps) {
           setReactSteps(reactRes.data.steps);
         }
@@ -246,7 +262,7 @@ export default function Home() {
         intent: "task"
       }]);
 
-      await axios.post(`${API_URL}/react`, { goal, max_steps: 15 });
+      await axios.post(`${API_URL}/react`, { goal, max_steps: 25 });
     } catch (e: any) {
       setMessages([...newMessages, {
         role: "attendant",
@@ -258,13 +274,47 @@ export default function Home() {
     }
   };
 
+  const handleResume = async () => {
+    if (!interventionInput.trim()) return;
+    setIsResuming(true);
+    try {
+      await axios.post(`${API_URL}/react/resume`, { response: interventionInput });
+      setInterventionInput("");
+      setAwaitingUser(false);
+      setUserQuestion(null);
+    } catch (e: any) {
+      console.error("Resume Error", e);
+    } finally {
+      setIsResuming(false);
+    }
+  };
+
+  const handleViewportClick = async (e: React.MouseEvent<HTMLImageElement>) => {
+    // クリックを常に許可（AIがアクティブでない場合でもテスト可能）
+    const rect = e.currentTarget.getBoundingClientRect();
+    const x_offset = e.clientX - rect.left;
+    const y_offset = e.clientY - rect.top;
+
+    // 比率計算 (本来の解像度 1280x720 に合わせる)
+    const x = Math.round((x_offset / rect.width) * 1280);
+    const y = Math.round((y_offset / rect.height) * 720);
+
+    console.log(`Remote click: (${x}, ${y})`);
+
+    try {
+      await axios.post(`${API_URL}/remote/click`, { x, y });
+    } catch (err) {
+      console.error("Remote Click Error", err);
+    }
+  };
+
   const executeCurrentPlan = async (plan: FlightPlan) => {
     try {
       await axios.post(`${API_URL}/execute`, {
         plan: plan.plan,
         summary: plan.summary
       });
-      setActiveTab("live");
+      setActiveTab("viewport");
       setExecutingStep(1);
       setAwaitingConfirmation(false);
     } catch (e: any) {
@@ -371,13 +421,15 @@ export default function Home() {
             <div className={clsx(
               "px-2 py-1 rounded text-[10px] font-mono flex items-center gap-1",
               status === "running"
-                ? reactRunning
-                  ? "bg-purple-500/20 text-purple-400 border border-purple-500/50"
-                  : "bg-green-500/20 text-green-400 border border-green-500/50"
+                ? awaitingUser
+                  ? "bg-amber-500/20 text-amber-400 border border-amber-500/50"
+                  : reactRunning
+                    ? "bg-purple-500/20 text-purple-400 border border-purple-500/50"
+                    : "bg-green-500/20 text-green-400 border border-green-500/50"
                 : "bg-gray-800 text-gray-500"
             )}>
-              {reactRunning && <Brain className="w-3 h-3 animate-pulse" />}
-              {status === "running" ? (reactRunning ? "AUTONOMOUS" : "RUNNING") : "IDLE"}
+              {(reactRunning || awaitingUser) && <Brain className={clsx("w-3 h-3", awaitingUser ? "text-amber-400" : "animate-pulse")} />}
+              {status === "running" ? (awaitingUser ? "AWAITING INTERVENTION" : reactRunning ? "AUTONOMOUS" : "RUNNING") : "IDLE"}
             </div>
           </div>
         </div>
@@ -407,6 +459,35 @@ export default function Home() {
               <div className="flex items-center gap-2 text-sky-500 text-xs font-mono bg-gray-900 border border-gray-800 rounded-2xl rounded-tl-none p-4">
                 <Sparkles className="w-4 h-4 animate-pulse" />
                 <span className="animate-pulse">Attendant is thinking...</span>
+              </div>
+            </div>
+          )}
+
+          {awaitingUser && (
+            <div className="flex flex-col items-start gap-2 p-4 bg-amber-950/20 border border-amber-500/30 rounded-2xl rounded-tl-none">
+              <div className="flex items-center gap-2 text-amber-400 text-xs font-bold font-orbitron">
+                <AlertTriangle className="w-4 h-4" />
+                HUMAN INTERVENTION REQUIRED
+              </div>
+              <p className="text-sm text-gray-300 italic">"{userQuestion}"</p>
+
+              <div className="w-full flex gap-2 mt-2">
+                <input
+                  type="text"
+                  value={interventionInput}
+                  onChange={(e) => setInterventionInput(e.target.value)}
+                  onKeyDown={(e) => e.key === "Enter" && handleResume()}
+                  placeholder="回答を入力して再開..."
+                  className="flex-grow bg-amber-950/30 border border-amber-500/30 rounded-lg px-3 py-2 text-xs text-white focus:outline-none focus:border-amber-500"
+                />
+                <button
+                  onClick={handleResume}
+                  disabled={isResuming || !interventionInput.trim()}
+                  className="bg-amber-600 hover:bg-amber-500 text-white px-4 py-2 rounded-lg text-xs font-bold flex items-center gap-1 transition-colors"
+                >
+                  {isResuming ? <Loader2 className="w-3 h-3 animate-spin" /> : <Play className="w-3 h-3" />}
+                  RESUME
+                </button>
               </div>
             </div>
           )}
@@ -468,7 +549,7 @@ export default function Home() {
           {[
             { id: "plan", label: "Mission Plan", icon: Target },
             { id: "react", label: "ReAct Monitor", icon: Brain },
-            { id: "live", label: "Live Viewport", icon: Monitor },
+            { id: "viewport", label: "Viewport", icon: Monitor },
             { id: "recorder", label: "Flight Recorder", icon: HardDrive },
           ].map((tab) => (
             <button
@@ -522,24 +603,28 @@ export default function Home() {
                     <p className="text-sm">No flight plan yet</p>
                   </div>
                 ) : (
-                  currentPlan.plan.map((step, idx) => (
+                  currentPlan.plan.map((s, i) => (
                     <div
-                      key={idx}
+                      key={i}
                       className={clsx(
-                        "flex items-center gap-3 p-3 rounded-xl border transition-all",
-                        executingStep === step.step ? "bg-sky-500/20 border-sky-500/50" : "bg-gray-950 border-gray-800"
+                        "p-4 rounded-xl border flex items-center gap-4 transition-all",
+                        executingStep === s.step
+                          ? "bg-sky-500/10 border-sky-500/50 shadow-[0_0_15px_rgba(14,165,233,0.2)]"
+                          : "bg-gray-950 border-gray-900 group hover:border-gray-700"
                       )}
                     >
                       <div className={clsx(
-                        "w-8 h-8 rounded-full flex items-center justify-center text-xs font-mono font-bold",
-                        executingStep === step.step ? "bg-sky-500 text-white animate-pulse" : "bg-gray-800 text-gray-400"
+                        "w-8 h-8 rounded-full flex items-center justify-center text-xs font-bold shrink-0",
+                        executingStep === s.step ? "bg-sky-500 text-white animate-pulse" : "bg-gray-900 text-gray-500"
                       )}>
-                        {step.step.toString().padStart(2, '0')}
+                        {s.step}
                       </div>
-                      {getActionIcon(step.action)}
                       <div className="flex-grow">
-                        <span className="text-xs font-mono text-sky-400 uppercase">{step.action}</span>
-                        <p className="text-xs text-gray-400 truncate">{getActionDescription(step)}</p>
+                        <div className="flex items-center gap-2">
+                          <div className="text-[10px] font-mono text-sky-500 uppercase tracking-widest">{s.action}</div>
+                          {executingStep === s.step && <div className="text-[10px] text-sky-400 bg-sky-400/10 px-2 rounded animate-pulse">EXECUTING</div>}
+                        </div>
+                        <div className="text-sm text-gray-200 mt-0.5">{s.instruction}</div>
                       </div>
                     </div>
                   ))
@@ -553,21 +638,27 @@ export default function Home() {
             <div className="flex-grow flex flex-col gap-4 overflow-hidden">
               <div className={clsx(
                 "border rounded-2xl p-5",
-                reactRunning
-                  ? "bg-gradient-to-r from-purple-500/10 to-pink-500/10 border-purple-500/30"
-                  : "bg-gradient-to-r from-gray-800/50 to-gray-900/50 border-gray-700"
+                awaitingUser
+                  ? "bg-gradient-to-r from-amber-500/10 to-orange-500/10 border-amber-500/30 shadow-[0_0_20px_rgba(245,158,11,0.1)]"
+                  : reactRunning
+                    ? "bg-gradient-to-r from-purple-500/10 to-pink-500/10 border-purple-500/30"
+                    : "bg-gradient-to-r from-gray-800/50 to-gray-900/50 border-gray-700"
               )}>
                 <div className="flex items-center gap-3 mb-2">
-                  <Brain className={clsx("w-5 h-5", reactRunning ? "text-purple-400 animate-pulse" : "text-gray-400")} />
-                  <h2 className="text-lg font-orbitron text-white">ReAct Autonomous Agent</h2>
-                  {reactRunning && <Loader2 className="w-4 h-4 text-purple-400 animate-spin" />}
+                  <Brain className={clsx("w-5 h-5", awaitingUser ? "text-amber-400" : reactRunning ? "text-purple-400 animate-pulse" : "text-gray-400")} />
+                  <h2 className="text-lg font-orbitron text-white">
+                    {awaitingUser ? "Waiting for Pilot" : "ReAct Autonomous Agent"}
+                  </h2>
+                  {reactRunning && !awaitingUser && <Loader2 className="w-4 h-4 text-purple-400 animate-spin" />}
                 </div>
                 <p className="text-sm text-gray-400">
-                  {reactRunning
-                    ? "AIが画面を観察し、リアルタイムで次のアクションを決定しています..."
-                    : reactResult
-                      ? `完了: ${reactResult.final_result}`
-                      : "「自律モードで〇〇して」と指示すると、AIが動的に判断・行動します。"
+                  {awaitingUser
+                    ? "AIが困難に直面し、あなたの介入を求めています。左のチャットエリアから回答してください。"
+                    : reactRunning
+                      ? "AIが画面を観察し、リアルタイムで次のアクションを決定しています..."
+                      : reactResult
+                        ? `完了: ${reactResult.final_result}`
+                        : "「自律モードで〇〇して」と指示すると、AIが動的に判断・行動します。"
                   }
                 </p>
               </div>
@@ -580,51 +671,35 @@ export default function Home() {
                     <p className="text-xs opacity-60 mt-1">「自律モードでAmazonでイヤホンを探して」のように指示</p>
                   </div>
                 ) : (
-                  reactSteps.map((step, idx) => (
-                    <div
-                      key={idx}
-                      className={clsx(
-                        "p-4 rounded-xl border transition-all",
-                        idx === reactSteps.length - 1 && reactRunning
-                          ? "bg-purple-500/10 border-purple-500/50 shadow-[0_0_20px_rgba(168,85,247,0.2)]"
-                          : step.action === "done"
-                            ? "bg-green-500/10 border-green-500/30"
-                            : step.action === "fail"
-                              ? "bg-red-500/10 border-red-500/30"
-                              : "bg-gray-950 border-gray-800"
-                      )}
-                    >
-                      <div className="flex items-center gap-2 mb-2">
-                        <div className={clsx(
-                          "w-6 h-6 rounded-full flex items-center justify-center text-xs font-mono font-bold",
-                          idx === reactSteps.length - 1 && reactRunning
-                            ? "bg-purple-500 text-white animate-pulse"
-                            : "bg-gray-800 text-gray-400"
-                        )}>
-                          {step.step}
+                  reactSteps.map((step, i) => (
+                    <div key={i} className="bg-gray-950 border border-gray-900 rounded-xl overflow-hidden animate-in fade-in slide-in-from-top duration-500">
+                      <div className="flex items-center justify-between px-4 py-2 bg-gray-900/50 border-b border-gray-900">
+                        <div className="flex items-center gap-3">
+                          <span className="text-[10px] font-mono text-gray-500">STEP {step.step}</span>
+                          <span className="px-2 py-0.5 bg-purple-500/10 text-purple-400 text-[10px] font-mono rounded border border-purple-500/20">{step.action.toUpperCase()}</span>
                         </div>
-                        {getActionIcon(step.action)}
-                        <span className="text-xs font-mono text-purple-400 uppercase">{step.action}</span>
-                        {idx === reactSteps.length - 1 && reactRunning && (
-                          <Loader2 className="w-3 h-3 text-purple-400 animate-spin ml-auto" />
-                        )}
                       </div>
-
-                      <div className="space-y-1 text-xs">
-                        <div className="flex gap-2">
-                          <Eye className="w-3 h-3 text-cyan-400 mt-0.5 flex-shrink-0" />
-                          <p className="text-gray-400">{step.observation}</p>
-                        </div>
-                        <div className="flex gap-2">
-                          <Lightbulb className="w-3 h-3 text-yellow-400 mt-0.5 flex-shrink-0" />
-                          <p className="text-gray-500">{step.reasoning}</p>
-                        </div>
-                        {Object.keys(step.params).length > 0 && (
-                          <div className="flex gap-2">
-                            <Zap className="w-3 h-3 text-orange-400 mt-0.5 flex-shrink-0" />
-                            <code className="text-gray-600 text-[10px]">{JSON.stringify(step.params)}</code>
+                      <div className="p-4 space-y-3">
+                        <div className="flex gap-4">
+                          {step.screenshot && (
+                            <div className="w-48 aspect-video shrink-0 bg-black rounded-lg border border-gray-800 overflow-hidden relative group">
+                              <img src={step.screenshot} alt={`Step ${step.step}`} className="w-full h-full object-contain" />
+                              <div className="absolute inset-0 bg-black/60 opacity-0 group-hover:opacity-100 flex items-center justify-center transition-opacity">
+                                <Maximize2 className="w-4 h-4 text-white" />
+                              </div>
+                            </div>
+                          )}
+                          <div className="flex-grow space-y-2">
+                            <div className="flex items-start gap-2">
+                              <Eye className="w-3 h-3 text-purple-400 mt-1 shrink-0" />
+                              <p className="text-xs text-gray-400 leading-relaxed">{step.observation}</p>
+                            </div>
+                            <div className="flex items-start gap-2">
+                              <Lightbulb className="w-3 h-3 text-amber-400 mt-1 shrink-0" />
+                              <p className="text-[11px] text-gray-300 leading-relaxed italic">{step.reasoning}</p>
+                            </div>
                           </div>
-                        )}
+                        </div>
                       </div>
                     </div>
                   ))
@@ -648,33 +723,40 @@ export default function Home() {
             </div>
           )}
 
-          {/* LIVE VIEWPORT TAB */}
-          {activeTab === "live" && (
-            <div className="flex-grow flex flex-col gap-4">
-              <div className="flex-grow bg-gray-950 border border-gray-900 rounded-2xl relative overflow-hidden">
-                <div className="absolute inset-0 flex items-center justify-center text-gray-800 flex-col gap-4">
-                  <Monitor className="w-12 h-12 opacity-10" />
-                  <p className="text-xs uppercase tracking-[0.2em] opacity-40 font-orbitron">Live stream coming soon</p>
-                </div>
-                <div className="absolute top-3 left-3 flex gap-2">
-                  <div className={clsx(
-                    "px-2 py-1 border rounded text-[10px] flex items-center gap-1",
-                    status === "running" ? "bg-red-500/20 border-red-500/50 text-red-400 animate-pulse" : "bg-gray-800 border-gray-700 text-gray-500"
-                  )}>
-                    <div className={clsx("w-1.5 h-1.5 rounded-full", status === "running" ? "bg-red-500" : "bg-gray-600")} />
-                    {status === "running" ? "LIVE" : "STANDBY"}
+          {/* VIEWPORT TAB - noVNC Embedded */}
+          {activeTab === "viewport" && (
+            <div className="flex-grow flex flex-col p-4 bg-black/50 rounded-2xl border border-gray-800 relative overflow-hidden">
+              <div className="flex items-center justify-between mb-4">
+                <div className="flex gap-2">
+                  <div className="px-3 py-1 bg-black/80 border border-red-500/50 rounded-full flex items-center gap-2">
+                    <div className="w-2 h-2 bg-red-500 rounded-full animate-pulse" />
+                    <span className="text-[10px] font-mono text-red-500 font-bold uppercase tracking-widest">Live VNC</span>
                   </div>
+                  {awaitingUser && (
+                    <div className="px-3 py-1 bg-amber-500/80 border border-amber-400 rounded-full flex items-center gap-2 animate-bounce">
+                      <MousePointer2 className="w-3 h-3 text-white" />
+                      <span className="text-[10px] font-bold text-white uppercase">Intervention Mode</span>
+                    </div>
+                  )}
+                </div>
+                <div className="flex gap-2 text-[10px] font-mono text-gray-500 uppercase">
+                  <span>🖥️ Direct Control</span>
+                  <span>•</span>
+                  <span>1280×720</span>
                 </div>
               </div>
 
-              <div className="h-1/3 bg-black border border-gray-900 rounded-2xl p-4 font-mono text-[10px] overflow-hidden flex flex-col">
-                <div className="flex items-center gap-2 text-sky-900 mb-3 font-bold border-b border-gray-900 pb-2">
-                  <Terminal className="w-3 h-3" />
-                  TELEMETRY
-                </div>
-                <div className="flex-grow overflow-y-auto text-sky-400/80 custom-scrollbar">
-                  <pre className="whitespace-pre-wrap">{logs || "> Awaiting mission..."}</pre>
-                </div>
+              <div className="flex-grow relative bg-black rounded-xl overflow-hidden shadow-2xl border border-white/5">
+                <iframe
+                  src="http://localhost:6080/vnc.html?autoconnect=true&resize=scale&quality=6&compression=2"
+                  className="w-full h-full border-0"
+                  allow="clipboard-read; clipboard-write"
+                  title="VNC Viewer"
+                />
+              </div>
+
+              <div className="mt-3 text-center text-[10px] font-mono text-gray-600">
+                💡 VNCが表示されない場合は <a href="http://localhost:6080/vnc.html" target="_blank" className="text-sky-500 hover:underline">こちら</a> を別タブで開いてください
               </div>
             </div>
           )}
@@ -719,6 +801,8 @@ export default function Home() {
               </div>
             </div>
           )}
+          {/* TELEMETRY Area (optional, removed duplicate live tab content) */}
+          <pre className="whitespace-pre-wrap">{logs || "> Awaiting mission..."}</pre>
         </div>
       </section>
 

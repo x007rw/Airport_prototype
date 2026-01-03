@@ -40,6 +40,13 @@ class ReActAgent:
         self.screenshot_dir = "/workspaces/Airport/results/react_screenshots"
         os.makedirs(self.screenshot_dir, exist_ok=True)
         
+        # Human-in-the-Loop用
+        import threading
+        self.pause_event = threading.Event()
+        self.pause_event.set() # 初期状態は実行中
+        self.user_response = None
+        self.awaiting_user = False
+        
         if self.api_key:
             genai.configure(api_key=self.api_key)
             self.model = genai.GenerativeModel('gemini-3-flash-preview')
@@ -125,6 +132,42 @@ class ReActAgent:
                         "video_path": video_path
                     }
                 
+                # Human-in-the-Loop: ユーザーへの質問
+                if thought.get("action") == "ask_user":
+                    print(f"\n✋ Awaiting human intervention: {thought.get('params', {}).get('question')}")
+                    self.awaiting_user = True
+                    self.pause_event.clear() # ポーズ状態にする
+                    
+                    # コールバックがあれば現在の状態をUIに通知（サーバー経由でUIを更新するため）
+                    if on_step:
+                        on_step(step_count, thought, screenshot_path)
+                    
+                    # ユーザーの再開を待つ（リモートクリックも処理）
+                    from src.server import REMOTE_CLICK_QUEUE
+                    while not self.pause_event.is_set():
+                        # リモートクリックキューをチェック
+                        try:
+                            x, y = REMOTE_CLICK_QUEUE.get_nowait()
+                            if self.atc.page:
+                                self.atc.page.mouse.click(x, y)
+                                print(f"   🖱️ Executed Remote Click at ({x}, {y})")
+                                time.sleep(0.5)  # クリック後少し待機
+                        except:
+                            pass  # キューが空
+                        time.sleep(0.1)  # CPU負荷軽減
+                    
+                    print(f"▶️ Resuming with user response: {self.user_response}")
+                    self.awaiting_user = False
+                    # ユーザーの回答を履歴に追加して、次の思考に役立てる
+                    self.history.append({
+                        "step": step_count,
+                        "timestamp": datetime.now().isoformat(),
+                        "role": "user_intervention",
+                        "response": self.user_response
+                    })
+                    # アクション実行はスキップして次のループ（Observe）に戻る
+                    continue
+
                 # 4. ACT: アクションを実行
                 self._act(thought)
                 
@@ -159,18 +202,29 @@ class ReActAgent:
                 "video_path": video_path
             }
     
-    def _capture_screen(self, step: int) -> str:
-        """現在の画面をキャプチャ"""
-        timestamp = int(time.time())
-        path = f"{self.screenshot_dir}/step_{step}_{timestamp}.png"
+    def _capture_screen(self, step: int, click_point: tuple = None) -> str:
+        """現在の画面をキャプチャ。click_pointがあれば赤丸を描画"""
+        path = f"{self.screenshot_dir}/step_{step}_{int(time.time())}.png"
         
         if self.atc.page:
             self.atc.page.screenshot(path=path)
         else:
-            # PyAutoGUIでデスクトップ全体をキャプチャ
             import pyautogui
             pyautogui.screenshot(path)
-        
+            
+        # クリック地点の可視化
+        if click_point and all(isinstance(coord, (int, float)) for coord in click_point):
+            try:
+                from PIL import ImageDraw
+                img = Image.open(path)
+                draw = ImageDraw.Draw(img)
+                x, y = click_point
+                r = 10
+                draw.ellipse((x-r, y-r, x+r, y+r), outline="red", width=3)
+                img.save(path)
+            except Exception as e:
+                print(f"   ⚠️ Visualization Error: {e}")
+                
         return path
     
     def _think(self, goal: str, screenshot_path: str, step: int) -> dict:
@@ -190,6 +244,10 @@ class ReActAgent:
 
 ## これまでの行動履歴
 {history_summary}
+
+## 重要: ユーザーの回答があれば、それに従って行動してください
+履歴に「👤 ユーザーの回答:」がある場合、その内容を最優先で考慮してください。
+同じ質問を繰り返さないでください。ユーザーが回答したら、その内容に基づいて次のアクション（検索、移動など）を実行してください。
 
 ## 現在のステップ
 {step}/{self.max_steps}
@@ -226,10 +284,15 @@ class ReActAgent:
    - 注意: get_urlで取得したURLを使う場合は content に "{{{{url:product_url}}}}" と書くと自動置換されます
    - 重要: **save_file実行後は必ず done アクションでタスク完了を宣言してください**
 
-10. **done** - ゴール達成、タスク完了
+10. **ask_user** - 人間に助けを求める（CAPTCHA、ログイン、判断に迷う場合など）
+    - params: {{"question": "何をしてほしいかの具体的な説明"}}
+    - 例: {{"question": "CAPTCHAが表示されました。パズルを解いてからResumeボタンを押してください。"}}
+    - 例: {{"question": "複数の候補が見つかりました。どちらを選びますか？ (AかBか)"}}
+
+11. **done** - ゴール達成、タスク完了
     - params: {{"result": "達成した結果の説明"}}
 
-11. **fail** - タスク完了不可能と判断
+12. **fail** - タスク完了不可能と判断
     - params: {{"reason": "なぜ完了できないか"}}
 
 ## 出力形式
@@ -301,10 +364,11 @@ class ReActAgent:
             elif action == "type":
                 text = params.get("text", "")
                 if self.atc.page:
-                    self.atc.page.keyboard.insert_text(text)
+                    # 1文字ずつキーボード入力をシミュレート（確実性が高い）
+                    self.atc.page.keyboard.type(text, delay=100)
                 else:
                     import pyautogui
-                    pyautogui.write(text, interval=0.05)
+                    pyautogui.write(text, interval=0.1)
                 print(f"   ⌨️ Typed: {text}")
                 
             elif action == "key":
@@ -371,6 +435,10 @@ class ReActAgent:
                     f.write(content + "\n")
                 print(f"   💾 Saved to {filename}: {content[:50]}...")
                 
+            elif action == "ask_user":
+                # アクションの実行自体は run メソッド内で Event を使って制御する
+                pass
+                
         except Exception as e:
             print(f"   ⚠️ Action Error: {e}")
     
@@ -380,9 +448,17 @@ class ReActAgent:
             return "(まだ行動していません)"
         
         lines = []
-        for h in self.history[-5:]:  # 直近5ステップ
-            thought = h.get("thought", {})
-            lines.append(f"Step {h['step']}: {thought.get('action', '?')} - {thought.get('observation', '')[:100]}")
+        for h in self.history[-7:]:  # 直近7ステップ（ユーザー介入を含むため増やす）
+            if h.get("role") == "user_intervention":
+                # ユーザーからの回答
+                lines.append(f"👤 ユーザーの回答: 「{h.get('response', '')}」")
+            else:
+                thought = h.get("thought", {})
+                action = thought.get('action', '?')
+                if action == "ask_user":
+                    lines.append(f"Step {h['step']}: ask_user - 質問: {thought.get('params', {}).get('question', '')[:80]}")
+                else:
+                    lines.append(f"Step {h['step']}: {action} - {thought.get('observation', '')[:80]}")
         
         return "\n".join(lines)
     

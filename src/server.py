@@ -1,6 +1,7 @@
 from fastapi import FastAPI, BackgroundTasks, HTTPException
 from fastapi.responses import FileResponse, JSONResponse
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel
 import subprocess
 import os
@@ -13,6 +14,11 @@ from .history_manager import HistoryManager
 # Initialize API and History Manager
 app = FastAPI(title="Airport Cockpit API")
 history_mgr = HistoryManager()
+
+# Static files for results (screenshots, videos)
+os.makedirs("/workspaces/Airport/results/react_screenshots", exist_ok=True)
+os.makedirs("/workspaces/Airport/results/videos", exist_ok=True)
+app.mount("/static/results", StaticFiles(directory="/workspaces/Airport/results"), name="results")
 
 # CORS Setup
 app.add_middleware(
@@ -27,6 +33,11 @@ app.add_middleware(
 CURRENT_PROCESS = None
 CURRENT_FLIGHT_ID = None
 LOG_FILE = "/workspaces/Airport/results/server_execution.log"
+
+# Remote Click Queue (スレッドセーフなキュー)
+import queue
+REMOTE_CLICK_QUEUE = queue.Queue()
+
 
 class RunRequest(BaseModel):
     mode: str # "web", "desktop", "weather_demo"
@@ -323,7 +334,7 @@ def run_react_wrapper(goal: str, flight_id: str, max_steps: int = 15):
                 "reasoning": thought.get("reasoning", ""),
                 "action": thought.get("action", ""),
                 "params": thought.get("params", {}),
-                "screenshot": screenshot
+                "screenshot": screenshot.replace("/workspaces/Airport/results", "/static/results") if screenshot else None
             }
             REACT_STEPS.append(step_data)
             history_mgr.log_event(flight_id, "REACT", json.dumps(step_data, ensure_ascii=False))
@@ -379,17 +390,77 @@ def start_react_agent(req: ReActRequest, background_tasks: BackgroundTasks):
 @app.get("/api/react/status")
 def get_react_status():
     """ReActエージェントの状態を取得"""
+    is_awaiting = False
+    question = None
+    
+    if REACT_AGENT:
+        is_awaiting = REACT_AGENT.awaiting_user
+        if is_awaiting and REACT_STEPS:
+            # 最後のステップから質問内容を取得
+            last_step = REACT_STEPS[-1]
+            if last_step.get("action") == "ask_user":
+                question = last_step.get("params", {}).get("question")
+
+    # 最新のスクリーンショットを取得（すでにステップ追加時にURL変換済み）
+    latest_screenshot = None
+    if REACT_STEPS:
+        for step in reversed(REACT_STEPS):
+            if step.get("screenshot"):
+                latest_screenshot = step.get("screenshot")
+                break
+
     return {
         "running": REACT_RUNNING,
+        "awaiting_user": is_awaiting,
+        "question": question,
         "steps": REACT_STEPS,
-        "result": REACT_RESULT
+        "result": REACT_RESULT,
+        "screenshot": latest_screenshot
     }
+
+class ResumeRequest(BaseModel):
+    response: Optional[str] = None
+
+@app.post("/api/react/resume")
+def resume_react_agent(req: ResumeRequest):
+    """ユーザーの回答を受けてReActエージェントを再開"""
+    global REACT_AGENT
+    
+    if not REACT_AGENT or not REACT_AGENT.awaiting_user:
+        raise HTTPException(status_code=400, detail="Agent is not awaiting user intervention")
+    
+    REACT_AGENT.user_response = req.response
+    REACT_AGENT.pause_event.set() # ここで Event をセットしてループを再開
+    
+    return {"message": "Agent resumed"}
+
+class ClickRequest(BaseModel):
+    x: int
+    y: int
+
+@app.post("/api/remote/click")
+def remote_click(req: ClickRequest):
+    """ライブビューポートからのクリックをキューに追加"""
+    global REACT_AGENT, REMOTE_CLICK_QUEUE
+    
+    # REACT_AGENTが動いている場合のみ許可
+    if not REACT_AGENT or not REACT_AGENT.atc:
+        raise HTTPException(status_code=400, detail="No active browser session")
+    
+    # クリックリクエストをキューに追加
+    REMOTE_CLICK_QUEUE.put((req.x, req.y))
+    print(f"   🗑️ Queued Remote Click at ({req.x}, {req.y})")
+    return {"message": "Click queued"}
 
 @app.post("/api/react/stop")
 def stop_react_agent():
     """ReActエージェントを停止"""
-    global REACT_RUNNING
-    # Note: 現在の実装では途中停止は難しいが、フラグを立てておく
+    global REACT_RUNNING, REACT_AGENT
+    
+    if REACT_AGENT and REACT_AGENT.awaiting_user:
+        REACT_AGENT.pause_event.set() # 待機中なら解除して終了させる
+        
     REACT_RUNNING = False
     return {"message": "Stop signal sent"}
+
 

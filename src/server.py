@@ -322,9 +322,9 @@ REACT_STEPS = []
 
 class ReActRequest(BaseModel):
     goal: str
-    max_steps: Optional[int] = 15
+    max_steps: Optional[int] = 50
 
-def run_react_wrapper(goal: str, flight_id: str, max_steps: int = 15):
+def run_react_wrapper(goal: str, flight_id: str, max_steps: int = 50):
     """ReActエージェントをバックグラウンドで実行"""
     global REACT_AGENT, REACT_RESULT, REACT_RUNNING, REACT_STEPS
     
@@ -334,7 +334,8 @@ def run_react_wrapper(goal: str, flight_id: str, max_steps: int = 15):
     try:
         atc = ATC()
         agent = ReActAgent(atc, remote_click_queue=REMOTE_CLICK_QUEUE)
-        agent.max_steps = max_steps
+        if max_steps:
+            agent.max_steps = max_steps
         REACT_AGENT = agent
         
         # コールバックで各ステップをログに記録

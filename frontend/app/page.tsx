@@ -309,7 +309,7 @@ export default function Home() {
         intent: "executing"
       }]);
 
-      await axios.post(`${API_URL}/react`, { goal, max_steps: 25 });
+      await axios.post(`${API_URL}/react`, { goal, max_steps: 50 });
     } catch (e: any) {
       setMessages(prev => [...prev, {
         role: "attendant",

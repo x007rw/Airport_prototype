@@ -4,6 +4,7 @@ ReAct Agent - Observe → Think → Act Loop
 """
 
 import os
+import subprocess
 import time
 import json
 import re
@@ -38,7 +39,7 @@ class ReActAgent:
         """
         self.atc = atc
         self.api_key = api_key or os.getenv("GOOGLE_API_KEY")
-        self.max_steps = 25  # 無限ループ防止
+        self.max_steps = 50  # 無限ループ防止（複雑なタスク対応）
         self.collected_data = {}  # 収集したデータ（URL等）
         self.history = []  # 行動履歴
         self.screenshot_dir = str(REACT_SCREENSHOTS_DIR)
@@ -179,7 +180,12 @@ class ReActAgent:
                     continue
 
                 # 4. ACT: アクションを実行
-                self._act(thought)
+                # 4. ACT: アクションを実行
+                action_result = self._act(thought)
+
+                # 結果を履歴に保存（次のThinkで使うため）
+                if self.history:
+                    self.history[-1]["action_result"] = action_result
                 
                 # アクションに応じた待機
                 if thought.get("action") in ["goto", "click", "key"]:
@@ -264,6 +270,12 @@ class ReActAgent:
 ## 現在のステップ
 {step}/{self.max_steps}
 
+⚠️ 効率化ガイダンス:
+- ステップ35以降: より直接的なアプローチを優先してください（探索的な行動を減らす）
+- ステップ45以降: 最短ルートのみを選択してください（試行錯誤を避ける）
+- 常に: 同じアクションの繰り返しを避け、前のステップから学習してください
+
+
 ## 利用可能なアクション
 
 1. **goto** - URLに移動
@@ -303,11 +315,22 @@ class ReActAgent:
     - 例: {{"question": "CAPTCHAが表示されました。パズルを解いてからResumeボタンを押してください。"}}
     - 例: {{"question": "複数の候補が見つかりました。どちらを選びますか？ (AかBか)"}}
 
-11. **done** - ゴール達成、タスク完了
+11. **run_terminal** - CLIコマンドを実行（ファイル操作、印刷など）
+    - params: {{"command": "wget https://example.com/file.pdf"}}
+    - 例: {{"command": "lp -d EPSON_EP808AW paper.pdf"}}
+    - 注意: GUIでのダウンロードや印刷が困難な場合は、このアクションを優先して使用してください
+
+12. **done** - ゴール達成、タスク完了
     - params: {{"result": "達成した結果の説明"}}
 
-12. **fail** - タスク完了不可能と判断
+13. **fail** - タスク完了不可能と判断
     - params: {{"reason": "なぜ完了できないか"}}
+
+## 戦略ガイド（重要）
+- **Web情報収集**: 最新情報はブラウザ(goto/click)で探してください。
+- **ファイル取得**: PDFなどのファイルへのリンクを見つけたら、クリックではなく `run_terminal` + `wget/curl` でダウンロードするのが最も確実です。
+- **印刷**: PDFを開いて印刷ボタンを押す（GUI）よりも、`run_terminal` + `lp` コマンドを使う方が遥かに簡単で確実です。
+- したがって、「検索(Web GUI) → URL特定 → ダウンロード(CLI) → 印刷(CLI)」というハイブリッド戦略が最短ルートです。
 
 ## 出力形式
 以下のJSON形式で出力してください。JSONのみを出力し、他の説明は不要です。
@@ -351,15 +374,17 @@ class ReActAgent:
                 "params": {"seconds": 2}
             }
     
-    def _act(self, thought: dict):
-        """決定されたアクションを実行"""
+    def _act(self, thought: dict) -> str:
+        """決定されたアクションを実行し、結果メッセージを返す"""
         action = thought.get("action", "wait")
         params = thought.get("params", {})
+        result_msg = f"Executed {action}"
         
         try:
             if action == "goto":
                 url = params.get("url", "https://www.google.com")
                 self.atc.nav(url)
+                result_msg = f"Navigated to {url}"
                 
             elif action == "click":
                 x = params.get("x", 0)
@@ -369,10 +394,11 @@ class ReActAgent:
                     time.sleep(0.3)
                     self.atc.page.mouse.click(x, y, click_count=click_count)
                     time.sleep(0.5)
+                    result_msg = f"Clicked at ({x}, {y}) x{click_count}"
                 else:
                     import pyautogui
                     pyautogui.click(x, y, clicks=click_count)
-                print(f"   🖱️ Clicked at ({x}, {y}) x{click_count}")
+                    result_msg = f"Clicked at ({x}, {y}) x{click_count} (Desktop)"
                 
             elif action == "type":
                 text = params.get("text", "")
@@ -383,16 +409,18 @@ class ReActAgent:
                     if submit:
                         time.sleep(0.2)
                         self.atc.page.keyboard.press("Enter")
-                        print(f"   ⌨️ Typed and submitted: {text}")
+                        result_msg = f"Typed and submitted: {text}"
                     else:
-                        print(f"   ⌨️ Typed: {text}")
+                        result_msg = f"Typed: {text}"
                     time.sleep(0.3)
                 else:
                     import pyautogui
                     pyautogui.write(text, interval=0.03)
                     if submit:
                         pyautogui.press('enter')
-                    print(f"   ⌨️ Typed: {text}")
+                        result_msg = f"Typed and submitted: {text} (Desktop)"
+                    else:
+                        result_msg = f"Typed: {text} (Desktop)"
                 
             elif action == "key":
                 key = params.get("key", "Enter")
@@ -413,17 +441,17 @@ class ReActAgent:
                     import pyautogui
                     scroll_amount = amount if direction == "up" else -amount
                     pyautogui.scroll(scroll_amount)
-                print(f"   📜 Scrolled {direction} by {amount}px")
+                result_msg = f"Scrolled {direction} by {amount}px"
                 
             elif action == "wait":
                 seconds = params.get("seconds", 2)
                 time.sleep(seconds)
-                print(f"   ⏳ Waited {seconds}s")
+                result_msg = f"Waited {seconds}s"
                 
             elif action == "read":
                 target = params.get("target", "unknown")
                 result = params.get("result", "")
-                print(f"   👁️ Read '{target}': {result}")
+                result_msg = f"Read '{target}': {result}"
                 # 結果をファイルに保存
                 with open("/workspaces/Airport/results/react_readings.txt", "a") as f:
                     f.write(f"[{datetime.now().isoformat()}] {target}: {result}\n")
@@ -433,9 +461,9 @@ class ReActAgent:
                 if self.atc.page:
                     url = self.atc.page.url
                     self.collected_data[label] = url
-                    print(f"   🔗 Got URL [{label}]: {url}")
+                    result_msg = f"Got URL [{label}]: {url}"
                 else:
-                    print(f"   ⚠️ No page available to get URL")
+                    result_msg = "No page available to get URL"
                 
             elif action == "save_file":
                 filename = params.get("filename", "results/output.txt")
@@ -455,65 +483,97 @@ class ReActAgent:
                 
                 # ファイルパスの処理
                 if not os.path.isabs(filename):
-                    filename = str(WORKSPACE_ROOT / filename)
+                     # WORKSPACE_ROOT が未定義かもしれないので絶対パス決め打ち
+                    filename = f"/workspaces/Airport/{filename}"
                 
                 os.makedirs(os.path.dirname(filename), exist_ok=True)
                 
                 mode = "a" if append else "w"
                 with open(filename, mode, encoding="utf-8") as f:
-                    f.write(content + "\n")
-                print(f"   💾 Saved to {filename}: {content[:50]}...")
+                    f.write(content)
+                result_msg = f"Saved to {filename}"
                 
             elif action == "ask_user":
-                # アクションの実行自体は run メソッド内で Event を使って制御する
-                pass
+                question = params.get("question", "")
+                self.awaiting_user = True
+                result_msg = f"Asked user: {question}"
             
-            # === Desktop Actions ===
+            elif action == "done":
+                result = params.get("result", "Goal achieved")
+                result_msg = f"Done: {result}"
+                return json.dumps({"success": True, "final_result": result, "message": result_msg})
+                
+            elif action == "fail":
+                reason = params.get("reason", "Unknown error")
+                result_msg = f"Failed: {reason}"
+                return json.dumps({"success": False, "final_result": reason, "message": result_msg})
+
             elif action == "launch_app":
-                if not self.desktop_atc:
-                    print("   ⚠️ Desktop mode is disabled")
-                else:
-                    command = params.get("command", "")
-                    print(f"   🖥️ Launching: {command}")
+                command = params.get("command", "")
+                if self.desktop_atc:
                     self.desktop_atc.launch_app(command)
                     self.current_mode = "desktop"
+                    result_msg = f"Launched app: {command}"
             
             elif action == "click_desktop":
                 if self.desktop_atc:
                     instruction = params.get("instruction", "")
-                    print(f"   🖱️ Desktop Click: {instruction}")
                     self.desktop_atc.click_vision(instruction)
+                    result_msg = f"Desktop Click: {instruction}"
             
             elif action == "type_desktop":
                 if self.desktop_atc:
                     instruction = params.get("instruction", "")
                     text = params.get("text", "")
                     self.desktop_atc.type_vision(instruction, text)
+                    result_msg = f"Typed on Desktop: {text}"
             
             elif action == "press_hotkey":
                 if self.desktop_atc:
                     keys = params.get("keys", [])
                     if isinstance(keys, list) and keys:
-                        print(f"   🎹 Hotkey: {' + '.join(keys)}")
                         self.desktop_atc.press_hotkey(*keys)
+                        result_msg = f"Hotkey: {' + '.join(keys)}"
             
             elif action == "print_document":
+                # print_document は launch_app + hotkey のショートカットなので
+                # メッセージもそれを反映
                 if self.desktop_atc:
                     filepath = params.get("filepath", "")
-                    print(f"   🖨️ Printing: {filepath}")
                     self.desktop_atc.launch_app(f"evince {filepath} &")
                     self.current_mode = "desktop"
                     time.sleep(3)
                     self.desktop_atc.press_hotkey("ctrl", "p")
                     time.sleep(2)
                     self.desktop_atc.click_vision("Print button")
+                    result_msg = f"Printing sequence executed for {filepath}"
+
+            elif action == "run_terminal":
+                command = params.get("command", "")
+                try:
+                    if command.strip().endswith("&"):
+                        subprocess.Popen(command, shell=True)
+                        result_msg = f"Started background command: {command}"
+                    else:
+                        res = subprocess.run(command, shell=True, capture_output=True, text=True, timeout=30)
+                        output_snippet = (res.stdout + res.stderr).strip()[:500] # 長めに取得
+                        if res.returncode == 0:
+                            result_msg = f"Command Success: {output_snippet or '(no output)'}"
+                        else:
+                            result_msg = f"Command Failed (code {res.returncode}): {output_snippet}"
+                except Exception as e:
+                    result_msg = f"Command Error: {str(e)}"
             
             elif action == "switch_to_web":
-                print("   🌐 Switching to Web mode")
                 self.current_mode = "web"
+                result_msg = "Switched to Web mode"
                 
         except Exception as e:
-            print(f"   ⚠️ Action Error: {e}")
+            print(f"Error executing action {action}: {e}")
+            result_msg = f"Error executing {action}: {str(e)}"
+
+        print(f"   ▶️ {result_msg}")
+        return result_msg
     
     def _format_history(self) -> str:
         """履歴をテキストにフォーマット"""
@@ -531,7 +591,12 @@ class ReActAgent:
                 if action == "ask_user":
                     lines.append(f"Step {h['step']}: ask_user - 質問: {thought.get('params', {}).get('question', '')[:80]}")
                 else:
-                    lines.append(f"Step {h['step']}: {action} - {thought.get('observation', '')[:80]}")
+                    observation = thought.get('observation', '')[:80]
+                    result = h.get('action_result', '')
+                    if result:
+                         lines.append(f"Step {h['step']}: {action} - Result: {result}")
+                    else:
+                         lines.append(f"Step {h['step']}: {action} - {observation}")
         
         return "\n".join(lines)
     

@@ -9,6 +9,7 @@ import glob
 from typing import List, Optional
 import time
 import threading
+import tempfile
 from .history_manager import HistoryManager
 from src.config import RESULTS_DIR, REACT_SCREENSHOTS_DIR, VIDEOS_DIR
 
@@ -282,7 +283,7 @@ def execute_plan(req: ExecutePlanRequest, background_tasks: BackgroundTasks):
         yaml_content["tasks"][0]["steps"].append(yaml_step)
     
     # Save dynamic YAML (unique temp file)
-    with tempfile.NamedTemporaryFile(delete=False, suffix=".yaml", dir=str(RESULTS_DIR)) as tmp:
+    with tempfile.NamedTemporaryFile(delete=False, mode="w", encoding="utf-8", suffix=".yaml", dir=str(RESULTS_DIR)) as tmp:
         yaml.safe_dump(yaml_content, tmp, allow_unicode=True, default_flow_style=False)
         dynamic_yaml_path = tmp.name
     

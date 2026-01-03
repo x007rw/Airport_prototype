@@ -2,27 +2,31 @@
 echo "✈️  AIRPORT COCKPIT SYSTEM STARTING..."
 
 # 1. 物理的な強制クリーンアップ (lsofを使用)
-BACKEND_PORT="${BACKEND_PORT:-8000}"
-FRONTEND_PORT="${FRONTEND_PORT:-3000}"
+BACKEND_PORT="${BACKEND_PORT:-${API_PORT:-8000}}"
+FRONTEND_PORT="${FRONTEND_PORT:-${UI_PORT:-3000}}"
 DISPLAY="${DISPLAY:-:99}"
 
-echo "🧹 Emergency cleaning of ports ${FRONTEND_PORT} and ${BACKEND_PORT}..."
-LSOF_PIDS=$(lsof -ti:${FRONTEND_PORT},${BACKEND_PORT})
-if [ ! -z "$LSOF_PIDS" ]; then
-    echo "Found ghost processes: $LSOF_PIDS. Terminating..."
-    kill -9 $LSOF_PIDS 2>/dev/null
-fi
-rm -rf frontend/.next/dev/lock 2>/dev/null
-sleep 2
-
-# 2. 環境変数の読み込み
-echo "🔑 Loading environment variables..."
+# 環境変数の読み込みを先に実行
 if [ -f .env ]; then
+    echo "🔑 Loading environment variables..."
     export $(cat .env | grep -v '^#' | xargs)
-    echo "   GOOGLE_API_KEY is set: ${GOOGLE_API_KEY:0:10}..."
-    # .env でポート指定があれば反映
+    # .envで上書き
     BACKEND_PORT="${BACKEND_PORT:-${API_PORT:-8000}}"
     FRONTEND_PORT="${FRONTEND_PORT:-${UI_PORT:-3000}}"
+fi
+
+# SKIP_CLEANUPがセットされていなければクリーンアップ実行
+if [ -z "$SKIP_CLEANUP" ]; then
+    echo "🧹 Emergency cleaning of ports ${FRONTEND_PORT} and ${BACKEND_PORT}..."
+    LSOF_PIDS=$(lsof -ti:${FRONTEND_PORT},${BACKEND_PORT})
+    if [ ! -z "$LSOF_PIDS" ]; then
+        echo "Found ghost processes: $LSOF_PIDS. Terminating..."
+        kill -9 $LSOF_PIDS 2>/dev/null
+    fi
+    rm -rf frontend/.next/dev/lock 2>/dev/null
+    sleep 2
+else
+    echo "⏩ Skipping port cleanup (SKIP_CLEANUP is set)"
 fi
 
 # 3. バックエンド起動

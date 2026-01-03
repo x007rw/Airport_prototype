@@ -23,7 +23,17 @@ echo "   ✅ VNC ready at http://localhost:6080/vnc.html"
 # 2. Cockpit起動 (Backend + Frontend)
 echo ""
 echo "🚀 Step 2: Starting Airport Cockpit..."
-./start_cockpit.sh &
+
+# 既存プロセスをクリーンアップ
+pkill -f "uvicorn"
+pkill -f "next-server"
+sleep 1
+
+# start_cockpit.sh 内のクリーンアップはスキップ（ここで既に実施済み）
+export SKIP_CLEANUP=1
+
+# フォアグラウンドで起動し、このシェルを保持する
+./start_cockpit.sh
 
 # 完了メッセージ
 sleep 5

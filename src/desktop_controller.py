@@ -3,7 +3,7 @@ import time
 import os
 import subprocess
 from dotenv import load_dotenv
-from llm_core import VisionCore
+from src.llm_core import VisionCore
 
 load_dotenv()
 

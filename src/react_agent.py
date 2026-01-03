@@ -261,7 +261,9 @@ class ReActAgent:
    - params: {{"x": 100, "y": 200, "description": "何をクリックするか"}}
 
 3. **type** - テキストを入力（現在フォーカスされている場所に）
-   - params: {{"text": "入力するテキスト"}}
+   - params: {{"text": "入力するテキスト", "submit": true/false}}
+   - **submit: true** にすると、入力後に自動的にEnterキーが押されます（検索実行に便利）
+   - 例: {{"text": "イヤホン", "submit": true}} → 入力後すぐに検索実行
 
 4. **key** - キーを押す
    - params: {{"key": "Enter" | "Tab" | "Escape" | "Backspace" など}}
@@ -350,26 +352,35 @@ class ReActAgent:
             elif action == "click":
                 x = params.get("x", 0)
                 y = params.get("y", 0)
+                click_count = params.get("click_count", 1)  # トリプルクリック対応
                 if self.atc.page:
-                    # クリック前に少し待つ
+                    time.sleep(0.3)
+                    self.atc.page.mouse.click(x, y, click_count=click_count)
                     time.sleep(0.5)
-                    self.atc.page.mouse.click(x, y)
-                    # クリック後にページ遷移を待つ
-                    time.sleep(1)
                 else:
                     import pyautogui
-                    pyautogui.click(x, y)
-                print(f"   🖱️ Clicked at ({x}, {y})")
+                    pyautogui.click(x, y, clicks=click_count)
+                print(f"   🖱️ Clicked at ({x}, {y}) x{click_count}")
                 
             elif action == "type":
                 text = params.get("text", "")
+                submit = params.get("submit", False)  # 入力後にEnterを押すオプション
                 if self.atc.page:
-                    # 1文字ずつキーボード入力をシミュレート（確実性が高い）
-                    self.atc.page.keyboard.type(text, delay=100)
+                    # フォーカスがあたっている前提で直接入力
+                    self.atc.page.keyboard.type(text, delay=30)
+                    if submit:
+                        time.sleep(0.2)
+                        self.atc.page.keyboard.press("Enter")
+                        print(f"   ⌨️ Typed and submitted: {text}")
+                    else:
+                        print(f"   ⌨️ Typed: {text}")
+                    time.sleep(0.3)
                 else:
                     import pyautogui
-                    pyautogui.write(text, interval=0.1)
-                print(f"   ⌨️ Typed: {text}")
+                    pyautogui.write(text, interval=0.03)
+                    if submit:
+                        pyautogui.press('enter')
+                    print(f"   ⌨️ Typed: {text}")
                 
             elif action == "key":
                 key = params.get("key", "Enter")

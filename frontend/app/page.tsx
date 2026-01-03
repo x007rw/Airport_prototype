@@ -748,7 +748,7 @@ export default function Home() {
 
               <div className="flex-grow relative bg-black rounded-xl overflow-hidden shadow-2xl border border-white/5">
                 <iframe
-                  src="http://localhost:6080/vnc.html?autoconnect=true&resize=scale&quality=6&compression=2"
+                  src="/vnc/vnc.html?autoconnect=true&resize=scale&quality=6&compression=2"
                   className="w-full h-full border-0"
                   allow="clipboard-read; clipboard-write"
                   title="VNC Viewer"

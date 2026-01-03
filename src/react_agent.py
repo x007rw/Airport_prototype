@@ -6,11 +6,14 @@ ReAct Agent - Observe → Think → Act Loop
 import os
 import time
 import json
+import re
 from datetime import datetime
 from typing import Optional, Callable
+import queue
 from PIL import Image
 import google.generativeai as genai
 from dotenv import load_dotenv
+from src.config import REACT_SCREENSHOTS_DIR, WORKSPACE_ROOT
 
 load_dotenv()
 
@@ -26,7 +29,7 @@ class ReActAgent:
     4. 繰り返し: ゴールに到達するまで
     """
     
-    def __init__(self, atc, api_key: str = None):
+    def __init__(self, atc, api_key: str = None, remote_click_queue: queue.Queue = None):
         """
         Args:
             atc: ATC (Air Traffic Controller) インスタンス - 実際の操作を行う
@@ -37,8 +40,9 @@ class ReActAgent:
         self.max_steps = 25  # 無限ループ防止
         self.collected_data = {}  # 収集したデータ（URL等）
         self.history = []  # 行動履歴
-        self.screenshot_dir = "/workspaces/Airport/results/react_screenshots"
+        self.screenshot_dir = str(REACT_SCREENSHOTS_DIR)
         os.makedirs(self.screenshot_dir, exist_ok=True)
+        self.remote_click_queue = remote_click_queue
         
         # Human-in-the-Loop用
         import threading
@@ -143,17 +147,17 @@ class ReActAgent:
                         on_step(step_count, thought, screenshot_path)
                     
                     # ユーザーの再開を待つ（リモートクリックも処理）
-                    from src.server import REMOTE_CLICK_QUEUE
                     while not self.pause_event.is_set():
                         # リモートクリックキューをチェック
-                        try:
-                            x, y = REMOTE_CLICK_QUEUE.get_nowait()
-                            if self.atc.page:
-                                self.atc.page.mouse.click(x, y)
-                                print(f"   🖱️ Executed Remote Click at ({x}, {y})")
-                                time.sleep(0.5)  # クリック後少し待機
-                        except:
-                            pass  # キューが空
+                        if self.remote_click_queue:
+                            try:
+                                x, y = self.remote_click_queue.get_nowait()
+                                if self.atc.page:
+                                    self.atc.page.mouse.click(x, y)
+                                    print(f"   🖱️ Executed Remote Click at ({x}, {y})")
+                                    time.sleep(0.5)  # クリック後少し待機
+                            except queue.Empty:
+                                pass  # キューが空
                         time.sleep(0.1)  # CPU負荷軽減
                     
                     print(f"▶️ Resuming with user response: {self.user_response}")
@@ -430,14 +434,20 @@ class ReActAgent:
                 content = params.get("content", "")
                 append = params.get("append", False)
                 
+                # Warn if placeholders exist without collected values
+                placeholder_labels = set(re.findall(r"\{\{?url:([^}]+)\}?\}", content))
+                for label in placeholder_labels:
+                    if label not in self.collected_data:
+                        print(f"   ⚠️ No collected URL for label '{label}'")
+
                 # URLプレースホルダーを置換
                 for label, url in self.collected_data.items():
                     content = content.replace(f"{{{{url:{label}}}}}", url)
                     content = content.replace(f"{{url:{label}}}", url)  # 念のため両方対応
                 
                 # ファイルパスの処理
-                if not filename.startswith("/"):
-                    filename = f"/workspaces/Airport/{filename}"
+                if not os.path.isabs(filename):
+                    filename = str(WORKSPACE_ROOT / filename)
                 
                 os.makedirs(os.path.dirname(filename), exist_ok=True)
                 

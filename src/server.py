@@ -10,15 +10,16 @@ from typing import List, Optional
 import time
 import threading
 from .history_manager import HistoryManager
+from src.config import RESULTS_DIR, REACT_SCREENSHOTS_DIR, VIDEOS_DIR
 
 # Initialize API and History Manager
 app = FastAPI(title="Airport Cockpit API")
 history_mgr = HistoryManager()
 
 # Static files for results (screenshots, videos)
-os.makedirs("/workspaces/Airport/results/react_screenshots", exist_ok=True)
-os.makedirs("/workspaces/Airport/results/videos", exist_ok=True)
-app.mount("/static/results", StaticFiles(directory="/workspaces/Airport/results"), name="results")
+os.makedirs(str(REACT_SCREENSHOTS_DIR), exist_ok=True)
+os.makedirs(str(VIDEOS_DIR), exist_ok=True)
+app.mount("/static/results", StaticFiles(directory=str(RESULTS_DIR)), name="results")
 
 # CORS Setup
 app.add_middleware(
@@ -32,7 +33,7 @@ app.add_middleware(
 # Task State
 CURRENT_PROCESS = None
 CURRENT_FLIGHT_ID = None
-LOG_FILE = "/workspaces/Airport/results/server_execution.log"
+LOG_FILE = str(RESULTS_DIR / "server_execution.log")
 
 # Remote Click Queue (スレッドセーフなキュー)
 import queue
@@ -50,9 +51,17 @@ def run_process_wrapper(command: List[str], flight_id: str):
     history_mgr.log_event(flight_id, "SYSTEM", f"Command initiated: {' '.join(command)}")
     
     # Ensure results dir exists
-    os.makedirs("/workspaces/Airport/results", exist_ok=True)
+    os.makedirs(str(RESULTS_DIR), exist_ok=True)
     
-    with open(LOG_FILE, "w") as f:
+    with open(LOG_FILE, "w", encoding="utf-8") as f:
+        def log_line(message: str, event_type: str = "ACTION"):
+            clean_line = message.strip()
+            if not clean_line:
+                return
+            f.write(clean_line + "\n")
+            f.flush()
+            history_mgr.log_event(flight_id, event_type, clean_line)
+
         try:
             CURRENT_PROCESS = subprocess.Popen(
                 command,
@@ -66,12 +75,7 @@ def run_process_wrapper(command: List[str], flight_id: str):
             
             # Real-time logging
             for line in iter(CURRENT_PROCESS.stdout.readline, ''):
-                clean_line = line.strip()
-                if clean_line:
-                    f.write(clean_line + "\n")
-                    f.flush()
-                    # Also log to Black Box
-                    history_mgr.log_event(flight_id, "ACTION", clean_line)
+                log_line(line, "ACTION")
             
             CURRENT_PROCESS.stdout.close()
             return_code = CURRENT_PROCESS.wait()
@@ -79,17 +83,15 @@ def run_process_wrapper(command: List[str], flight_id: str):
             status = "COMPLETED" if return_code == 0 else "FAILED"
             msg = f"Mission finished with code {return_code}"
             
-            history_mgr.log_event(flight_id, "SYSTEM", msg)
+            log_line(f"[SYSTEM] {msg}", "SYSTEM")
             history_mgr.end_flight(flight_id, status)
-            
-            # Final log write
-            f.write(f"\n[SYSTEM] {msg}\n")
             
         except Exception as e:
             err_msg = f"Execution Error: {str(e)}"
-            f.write(f"\n[ERROR] {err_msg}\n")
-            history_mgr.log_event(flight_id, "ERROR", err_msg)
+            log_line(f"[ERROR] {err_msg}", "ERROR")
             history_mgr.end_flight(flight_id, "CRASHED")
+        finally:
+            CURRENT_PROCESS = None
 
 @app.get("/api/status")
 def get_status():
@@ -147,7 +149,7 @@ def get_flight_details(flight_id: str):
 
 @app.get("/api/videos")
 def get_videos():
-    video_dir = "/workspaces/Airport/results/videos"
+    video_dir = str(VIDEOS_DIR)
     if not os.path.exists(video_dir):
         return []
     files = glob.glob(os.path.join(video_dir, "*.webm"))
@@ -156,7 +158,7 @@ def get_videos():
 
 @app.get("/api/videos/{filename}")
 def stream_video(filename: str):
-    video_path = os.path.join("/workspaces/Airport/results/videos", filename)
+    video_path = os.path.join(str(VIDEOS_DIR), filename)
     if not os.path.exists(video_path):
         raise HTTPException(status_code=404, detail="Video not found")
     return FileResponse(video_path, media_type="video/webm")
@@ -271,17 +273,17 @@ def execute_plan(req: ExecutePlanRequest, background_tasks: BackgroundTasks):
         
         yaml_content["tasks"][0]["steps"].append(yaml_step)
     
-    # Save dynamic YAML
-    dynamic_yaml_path = "/workspaces/Airport/scenarios/dynamic_mission.yaml"
-    with open(dynamic_yaml_path, "w", encoding="utf-8") as f:
-        yaml.dump(yaml_content, f, allow_unicode=True, default_flow_style=False)
+    # Save dynamic YAML (unique temp file)
+    with tempfile.NamedTemporaryFile(delete=False, suffix=".yaml", dir=str(RESULTS_DIR)) as tmp:
+        yaml.safe_dump(yaml_content, tmp, allow_unicode=True, default_flow_style=False)
+        dynamic_yaml_path = tmp.name
     
     # Initialize Flight Recorder
     CURRENT_FLIGHT_ID = history_mgr.start_flight()
     history_mgr.log_event(CURRENT_FLIGHT_ID, "PLAN", json.dumps(req.plan, ensure_ascii=False))
     
     # Run autopilot with generated YAML
-    command = ["python", "run_airport.py", "web", "dynamic_mission.yaml"]
+    command = ["python", "run_airport.py", "web", dynamic_yaml_path]
     background_tasks.add_task(run_process_wrapper, command, CURRENT_FLIGHT_ID)
     
     return {
@@ -322,7 +324,7 @@ def run_react_wrapper(goal: str, flight_id: str, max_steps: int = 15):
     
     try:
         atc = ATC()
-        agent = ReActAgent(atc)
+        agent = ReActAgent(atc, remote_click_queue=REMOTE_CLICK_QUEUE)
         agent.max_steps = max_steps
         REACT_AGENT = agent
         

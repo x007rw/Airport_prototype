@@ -4,11 +4,13 @@ import subprocess
 import json
 from dotenv import load_dotenv
 
+from src.config import DISPLAY, LOGS_DIR, SCREENSHOTS_DIR, VIDEOS_DIR, VIEWPORT_SIZE
+
 load_dotenv()
 
 # --- Airport 自律起動フェーズ ---
 def ensure_display():
-    display = os.getenv("DISPLAY", ":99")
+    display = DISPLAY
     try:
         subprocess.run(["xdpyinfo", "-display", display], 
                        stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, check=True)
@@ -27,8 +29,8 @@ import numpy as np
 class ATC:
     def __init__(self):
         pyautogui.FAILSAFE = False
-        self.log_base = "/workspaces/Airport/results/logs"
-        self.img_base = "/workspaces/Airport/results/screenshots"
+        self.log_base = str(LOGS_DIR)
+        self.img_base = str(SCREENSHOTS_DIR)
         os.makedirs(self.log_base, exist_ok=True)
         os.makedirs(self.img_base, exist_ok=True)
         
@@ -45,14 +47,14 @@ class ATC:
         self.browser = self.playwright.chromium.launch(headless=False)
         
         # 動画保存ディレクトリ
-        video_dir = "/workspaces/Airport/results/videos"
+        video_dir = str(VIDEOS_DIR)
         os.makedirs(video_dir, exist_ok=True)
         
         # Contextを作成して動画記録を設定
         self.context = self.browser.new_context(
-            viewport={'width': 1280, 'height': 720},
+            viewport=VIEWPORT_SIZE,
             record_video_dir=video_dir,
-            record_video_size={'width': 1280, 'height': 720}
+            record_video_size=VIEWPORT_SIZE
         )
         self.page = self.context.new_page()
         return self.page

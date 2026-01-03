@@ -1,10 +1,11 @@
 import os
 import json
-import time
 from datetime import datetime
 
+from src.config import FLIGHTS_DIR
+
 class HistoryManager:
-    def __init__(self, base_dir="/workspaces/Airport/results/flights"):
+    def __init__(self, base_dir=FLIGHTS_DIR):
         self.base_dir = base_dir
         os.makedirs(self.base_dir, exist_ok=True)
 

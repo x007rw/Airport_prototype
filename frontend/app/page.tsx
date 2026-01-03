@@ -65,7 +65,7 @@ export default function Home() {
   const [messages, setMessages] = useState<Message[]>([
     {
       role: "attendant",
-      text: "機長、おはようございます！✈️ 本日のフライトをサポートいたします。\n\nどのようなミッションをご希望ですか？\n\n🚀 **通常モード**: 事前にプランを確認してから実行\n🧠 **自律モード**: AIが状況を見ながら動的に判断\n\n例：「東京の天気を調べて」「自律モードでAmazonでイヤホンを探して」",
+      text: "機長、おはようございます！✈️ 本日のフライトをサポートいたします。\n\n指示を入力すると、フライトプランを生成します。\nプランを確認後、**Take-off**ボタンでAIが自律的にミッションを実行します。\n\n例：「Amazonでイヤホンを探して」「Googleで天気を調べて」「YouTubeで猫の動画を探して」",
       intent: "greeting"
     }
   ]);
@@ -79,6 +79,7 @@ export default function Home() {
   const [currentPlan, setCurrentPlan] = useState<FlightPlan | null>(null);
   const [executingStep, setExecutingStep] = useState<number | null>(null);
   const [awaitingConfirmation, setAwaitingConfirmation] = useState(false);
+  const [pendingGoal, setPendingGoal] = useState<string | null>(null);
 
   // ReAct State (自律モード)
   const [reactMode, setReactMode] = useState(false);
@@ -202,18 +203,8 @@ export default function Home() {
     setMessages(newMessages);
     setInput("");
 
-    // Check if user wants ReAct mode
-    const isReactRequest = userMessage.toLowerCase().includes("自律") ||
-      userMessage.toLowerCase().includes("react") ||
-      userMessage.toLowerCase().includes("autonomous");
-
-    if (isReactRequest) {
-      // ReAct mode
-      await startReActMode(userMessage.replace(/自律モードで|自律で|reactで/gi, "").trim(), newMessages);
-    } else {
-      // Normal mode - use Attendant
-      await handleNormalMode(userMessage, newMessages);
-    }
+    // Generate plan first, then await Take-off
+    await handleNormalMode(userMessage, newMessages);
   };
 
   const handleNormalMode = async (userMessage: string, newMessages: Message[]) => {
@@ -232,10 +223,13 @@ export default function Home() {
         setCurrentPlan(result.plan);
         setActiveTab("plan");
         setAwaitingConfirmation(true);
+        setPendingGoal(userMessage); // Store the goal for ReAct execution
         setReactMode(false);
       } else if (result.intent === "confirmation" && result.execute_now && result.plan) {
         setCurrentPlan(result.plan);
-        await executeCurrentPlan(result.plan);
+        setPendingGoal(userMessage);
+        // Start ReAct mode instead of executing the static plan
+        await executeWithReAct(userMessage);
       }
     } catch (e: any) {
       setMessages([...newMessages, {
@@ -248,31 +242,6 @@ export default function Home() {
     }
   };
 
-  const startReActMode = async (goal: string, newMessages: Message[]) => {
-    setIsThinking(true);
-    setReactMode(true);
-    setReactSteps([]);
-    setReactResult(null);
-    setActiveTab("react");
-
-    try {
-      setMessages([...newMessages, {
-        role: "attendant",
-        text: `🧠 自律モードを起動します。ゴール：「${goal}」\n\nAIが画面を見ながらリアルタイムで判断・行動します。ReAct Monitorタブで進行状況を確認できます。`,
-        intent: "task"
-      }]);
-
-      await axios.post(`${API_URL}/react`, { goal, max_steps: 25 });
-    } catch (e: any) {
-      setMessages([...newMessages, {
-        role: "attendant",
-        text: `自律モードの起動に失敗しました: ${e.response?.data?.detail || e.message}`,
-        intent: "error"
-      }]);
-    } finally {
-      setIsThinking(false);
-    }
-  };
 
   const handleResume = async () => {
     if (!interventionInput.trim()) return;
@@ -326,8 +295,32 @@ export default function Home() {
     }
   };
 
+  const executeWithReAct = async (goal: string) => {
+    setReactMode(true);
+    setReactSteps([]);
+    setReactResult(null);
+    setActiveTab("react");
+    setAwaitingConfirmation(false);
+
+    try {
+      setMessages(prev => [...prev, {
+        role: "attendant",
+        text: `🧠 自律モードを起動します。ゴール：「${goal}」\n\nAIが画面を見ながらリアルタイムで判断・行動します。ReAct Monitorタブで進行状況を確認できます。`,
+        intent: "executing"
+      }]);
+
+      await axios.post(`${API_URL}/react`, { goal, max_steps: 25 });
+    } catch (e: any) {
+      setMessages(prev => [...prev, {
+        role: "attendant",
+        text: `自律モードの起動に失敗しました: ${e.response?.data?.detail || e.message}`,
+        intent: "error"
+      }]);
+    }
+  };
+
   const handleTakeOff = async () => {
-    if (!currentPlan || currentPlan.plan.length === 0) return;
+    if (!currentPlan || currentPlan.plan.length === 0 || !pendingGoal) return;
 
     setMessages(prev => [...prev, {
       role: "attendant",
@@ -335,7 +328,7 @@ export default function Home() {
       intent: "executing"
     }]);
 
-    await executeCurrentPlan(currentPlan);
+    await executeWithReAct(pendingGoal);
   };
 
   const handleResetChat = async () => {
@@ -343,11 +336,12 @@ export default function Home() {
       await axios.post(`${API_URL}/chat/reset`);
       setMessages([{
         role: "attendant",
-        text: "会話をリセットしました。新しいミッションについて話しましょう！\n\n🚀 通常モード or 🧠 自律モード どちらでも対応できます。",
+        text: "会話をリセットしました。新しいミッションについて話しましょう！\n\n指示を入力するとフライトプランが生成されます。",
         intent: "greeting"
       }]);
       setCurrentPlan(null);
       setAwaitingConfirmation(false);
+      setPendingGoal(null);
       setReactMode(false);
       setReactSteps([]);
       setReactResult(null);
@@ -502,7 +496,7 @@ export default function Home() {
               value={input}
               onChange={(e) => setInput(e.target.value)}
               onKeyDown={(e) => e.key === "Enter" && handleSendMessage()}
-              placeholder="自然に話しかけてください... (「自律モードで」で自律実行)"
+              placeholder="指示を入力してください（プラン生成 → Take-offで実行）"
               className="w-full bg-gray-900 border border-gray-800 rounded-xl py-4 pl-4 pr-12 text-sm focus:outline-none focus:border-sky-500 transition-colors"
               disabled={isThinking || status === "running"}
             />
@@ -658,7 +652,7 @@ export default function Home() {
                       ? "AIが画面を観察し、リアルタイムで次のアクションを決定しています..."
                       : reactResult
                         ? `完了: ${reactResult.final_result}`
-                        : "「自律モードで〇〇して」と指示すると、AIが動的に判断・行動します。"
+                        : "プランを確認後、Take-offボタンを押すとAIが動的に判断・行動します。"
                   }
                 </p>
               </div>
@@ -668,7 +662,7 @@ export default function Home() {
                   <div className="flex flex-col items-center justify-center h-full text-gray-600">
                     <Brain className="w-12 h-12 opacity-20 mb-3" />
                     <p className="text-sm">No ReAct steps yet</p>
-                    <p className="text-xs opacity-60 mt-1">「自律モードでAmazonでイヤホンを探して」のように指示</p>
+                    <p className="text-xs opacity-60 mt-1">指示入力後、Take-offボタンを押すと始まります</p>
                   </div>
                 ) : (
                   reactSteps.map((step, i) => (

@@ -14,7 +14,6 @@ from PIL import Image
 import google.generativeai as genai
 from dotenv import load_dotenv
 from src.config import REACT_SCREENSHOTS_DIR, WORKSPACE_ROOT
-from src.desktop_controller import DesktopATC
 
 load_dotenv()
 
@@ -30,7 +29,7 @@ class ReActAgent:
     4. 繰り返し: ゴールに到達するまで
     """
     
-    def __init__(self, atc, api_key: str = None, remote_click_queue: queue.Queue = None, enable_desktop: bool = True):
+    def __init__(self, atc, api_key: str = None, remote_click_queue: queue.Queue = None):
         """
         Args:
             atc: ATC (Air Traffic Controller) インスタンス - 実際の操作を行う
@@ -44,11 +43,6 @@ class ReActAgent:
         self.screenshot_dir = str(REACT_SCREENSHOTS_DIR)
         os.makedirs(self.screenshot_dir, exist_ok=True)
         self.remote_click_queue = remote_click_queue
-        
-        # Desktop Integration
-        self.enable_desktop = enable_desktop
-        self.desktop_atc = DesktopATC() if enable_desktop else None
-        self.current_mode = "web"  # "web" or "desktop"
         
         # Human-in-the-Loop用
         import threading
@@ -216,9 +210,7 @@ class ReActAgent:
         """現在の画面をキャプチャ。click_pointがあれば赤丸を描画"""
         path = f"{self.screenshot_dir}/step_{step}_{int(time.time())}.png"
         
-        if self.current_mode == "desktop" and self.desktop_atc:
-            path = self.desktop_atc.capture_screen(prefix=f"step_{step}")
-        elif self.atc.page:
+        if self.atc.page:
             self.atc.page.screenshot(path=path)
         else:
             import pyautogui
@@ -467,50 +459,6 @@ class ReActAgent:
             elif action == "ask_user":
                 # アクションの実行自体は run メソッド内で Event を使って制御する
                 pass
-            
-            # === Desktop Actions ===
-            elif action == "launch_app":
-                if not self.desktop_atc:
-                    print("   ⚠️ Desktop mode is disabled")
-                else:
-                    command = params.get("command", "")
-                    print(f"   🖥️ Launching: {command}")
-                    self.desktop_atc.launch_app(command)
-                    self.current_mode = "desktop"
-            
-            elif action == "click_desktop":
-                if self.desktop_atc:
-                    instruction = params.get("instruction", "")
-                    print(f"   🖱️ Desktop Click: {instruction}")
-                    self.desktop_atc.click_vision(instruction)
-            
-            elif action == "type_desktop":
-                if self.desktop_atc:
-                    instruction = params.get("instruction", "")
-                    text = params.get("text", "")
-                    self.desktop_atc.type_vision(instruction, text)
-            
-            elif action == "press_hotkey":
-                if self.desktop_atc:
-                    keys = params.get("keys", [])
-                    if isinstance(keys, list) and keys:
-                        print(f"   🎹 Hotkey: {' + '.join(keys)}")
-                        self.desktop_atc.press_hotkey(*keys)
-            
-            elif action == "print_document":
-                if self.desktop_atc:
-                    filepath = params.get("filepath", "")
-                    print(f"   🖨️ Printing: {filepath}")
-                    self.desktop_atc.launch_app(f"evince {filepath} &")
-                    self.current_mode = "desktop"
-                    time.sleep(3)
-                    self.desktop_atc.press_hotkey("ctrl", "p")
-                    time.sleep(2)
-                    self.desktop_atc.click_vision("Print button")
-            
-            elif action == "switch_to_web":
-                print("   🌐 Switching to Web mode")
-                self.current_mode = "web"
                 
         except Exception as e:
             print(f"   ⚠️ Action Error: {e}")
